@@ -1,0 +1,10 @@
+# ---------------------------------------------------------------------------
+# Shorthand Word Lookup Web App
+# Python package requirements
+# ---------------------------------------------------------------------------
+
+flask
+wordfreq
+eng-to-ipa
+nltk
+gunicorn

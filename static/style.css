@@ -1,0 +1,355 @@
+/*
+  Shorthand Word Lookup Web App
+  =============================
+
+  Stylesheet for the local shorthand study interface.
+
+  Design goals:
+  - Minimal
+  - Legible
+  - Slightly bookish / copybook-like
+  - Good for focused study
+  - Works on both desktop and narrow screens
+
+  Features:
+  - MIRRORED | NORMAL SVG orientation toggle
+  - LIGHT | DARK theme toggle
+  - In dark mode, the SVG image is visually inverted
+*/
+
+
+/* ---------------------------------------------------------------------------
+   Theme variables
+--------------------------------------------------------------------------- */
+
+:root {
+  --bg: #f7f3ec;
+  --ink: #1f1b17;
+  --muted: #6f665c;
+  --card: #fffaf2;
+  --line: #d7c9b8;
+  --accent: #3f3328;
+  --error: #8a1f1f;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Dark mode variables
+--------------------------------------------------------------------------- */
+
+.dark-mode {
+  --bg: #161412;
+  --ink: #f2eadf;
+  --muted: #b8aa99;
+  --card: #211d19;
+  --line: #4b4036;
+  --accent: #d8c7b3;
+  --error: #ffb4b4;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Global layout defaults
+--------------------------------------------------------------------------- */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+
+/* ---------------------------------------------------------------------------
+   Main page container
+--------------------------------------------------------------------------- */
+
+.container {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 3rem 1.25rem;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Headings
+--------------------------------------------------------------------------- */
+
+h1 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+h2,
+h3 {
+  color: var(--ink);
+}
+
+
+/* ---------------------------------------------------------------------------
+   Form controls
+--------------------------------------------------------------------------- */
+
+label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--muted);
+}
+
+.search-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+input {
+  flex: 1;
+  padding: 0.75rem 0.9rem;
+  font-size: 1.1rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+}
+
+.dark-mode input {
+  background: #2a251f;
+  color: var(--ink);
+}
+
+button {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.dark-mode button {
+  color: #161412;
+}
+
+button:hover {
+  opacity: 0.9;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Result card
+--------------------------------------------------------------------------- */
+
+.card {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+
+
+/* ---------------------------------------------------------------------------
+   Utility classes
+--------------------------------------------------------------------------- */
+
+.hidden {
+  display: none;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Result table
+--------------------------------------------------------------------------- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+th {
+  width: 35%;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Gregg SVG display
+--------------------------------------------------------------------------- */
+
+.svg-box {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: white;
+  border: 1px solid var(--line);
+}
+
+.dark-mode .svg-box {
+  background: #161412;
+}
+
+.svg-box img {
+  display: block;
+  max-width: 100%;
+  max-height: 260px;
+  margin-top: 1rem;
+}
+
+
+/* ---------------------------------------------------------------------------
+   SVG orientation toggle
+--------------------------------------------------------------------------- */
+
+.orientation-control,
+.theme-control {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.theme-control {
+  margin-bottom: 2rem;
+}
+
+.orientation-control {
+  margin-bottom: 1rem;
+}
+
+.orientation-label,
+.theme-label {
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 54px;
+  height: 28px;
+  margin: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: var(--line);
+  border: 1px solid var(--muted);
+  transition: 0.2s;
+}
+
+.toggle-slider::before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  border: 1px solid var(--muted);
+  transition: 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: var(--accent);
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(26px);
+}
+
+
+/* ---------------------------------------------------------------------------
+   SVG image transformations
+--------------------------------------------------------------------------- */
+
+/*
+  The raw SVG file is considered MIRRORED.
+
+  When the orientation toggle is set to NORMAL, this class flips the displayed
+  image horizontally without editing the SVG file.
+*/
+
+.normal-svg {
+  transform: scaleX(-1);
+}
+
+/*
+  In dark mode, invert the SVG so black Gregg outlines become light.
+
+  This stacks visually with the normal-svg orientation transform because filter
+  and transform are separate CSS properties.
+*/
+
+.dark-mode .svg-box img {
+  filter: invert(1);
+}
+
+
+/* ---------------------------------------------------------------------------
+   Error display
+--------------------------------------------------------------------------- */
+
+.error {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  color: var(--error);
+  border: 1px solid var(--error);
+  background: #fff5f5;
+}
+
+.dark-mode .error {
+  background: #2a1515;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Small-screen adjustment
+--------------------------------------------------------------------------- */
+
+@media (max-width: 520px) {
+  .search-row {
+    flex-direction: column;
+  }
+
+  button {
+    width: 100%;
+  }
+
+  th,
+  td {
+    display: block;
+    width: 100%;
+  }
+
+  th {
+    padding-bottom: 0.15rem;
+  }
+
+  td {
+    padding-top: 0.15rem;
+  }
+
+  .orientation-control,
+  .theme-control {
+    flex-wrap: wrap;
+  }
+}

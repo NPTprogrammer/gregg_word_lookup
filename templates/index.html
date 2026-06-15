@@ -1,0 +1,243 @@
+<!--
+  Shorthand Word Lookup Web App
+  =============================
+
+  Main browser interface for the local shorthand lookup application.
+
+  This page allows the user to enter an English word or phrase and retrieve:
+
+  - Frequency Rating
+  - Grammatical Classification
+  - IPA transcription
+  - Major system value derived from IPA
+  - Gregg shorthand SVG, if available
+
+  Features:
+  - MIRRORED | NORMAL image orientation toggle
+  - LIGHT | DARK theme toggle
+  - In dark mode, the SVG image is visually inverted
+  - Source SVG files are not modified
+-->
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Shorthand Word Lookup</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+  <main class="container">
+    <h1>Shorthand Word Lookup</h1>
+
+    <!-- Theme toggle -->
+    <div class="theme-control">
+      <span class="theme-label">LIGHT</span>
+
+      <label class="toggle-switch">
+        <input
+          id="theme-toggle"
+          type="checkbox"
+          aria-label="Toggle light and dark mode"
+        >
+        <span class="toggle-slider"></span>
+      </label>
+
+      <span class="theme-label">DARK</span>
+    </div>
+
+    <!-- Lookup form -->
+    <form id="lookup-form">
+      <label for="word-input">Word or phrase</label>
+
+      <div class="search-row">
+        <input
+          id="word-input"
+          name="word"
+          type="text"
+          placeholder="example: this is"
+          autocomplete="off"
+          autofocus
+        >
+
+        <button type="submit">Lookup</button>
+      </div>
+    </form>
+
+    <!-- Result card -->
+    <section id="results" class="card hidden">
+      <h2 id="result-word"></h2>
+
+      <table>
+        <tbody>
+          <tr>
+            <th>Frequency Rating</th>
+            <td id="result-frequency"></td>
+          </tr>
+
+          <tr>
+            <th>Classification</th>
+            <td id="result-classification"></td>
+          </tr>
+
+          <tr>
+            <th>IPA</th>
+            <td id="result-ipa"></td>
+          </tr>
+
+          <tr>
+            <th>Major system value</th>
+            <td id="result-major"></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- SVG display -->
+      <div id="svg-box" class="svg-box hidden">
+        <h3>Gregg shorthand</h3>
+
+        <div class="orientation-control" aria-label="Gregg image orientation">
+          <span class="orientation-label">MIRRORED</span>
+
+          <label class="toggle-switch">
+            <input
+              id="orientation-toggle"
+              type="checkbox"
+              aria-label="Toggle between mirrored and normal Gregg image"
+            >
+            <span class="toggle-slider"></span>
+          </label>
+
+          <span class="orientation-label">NORMAL</span>
+        </div>
+
+        <img id="gregg-svg" alt="Gregg shorthand SVG">
+      </div>
+    </section>
+
+    <!-- Error message area -->
+    <section id="error-box" class="error hidden"></section>
+  </main>
+
+  <script>
+    /*
+      Shorthand Word Lookup Frontend Script
+      =====================================
+
+      Responsibilities:
+      1. Capture the lookup form submission.
+      2. Send the word or phrase to the Flask backend.
+      3. Render frequency, grammar, IPA, Major value, and SVG.
+      4. Toggle Gregg SVG display between MIRRORED and NORMAL.
+      5. Toggle page theme between LIGHT and DARK.
+      6. In dark mode, visually invert the SVG.
+      7. Display readable validation errors.
+    */
+
+    const form = document.getElementById("lookup-form");
+    const input = document.getElementById("word-input");
+
+    const results = document.getElementById("results");
+    const errorBox = document.getElementById("error-box");
+
+    const resultWord = document.getElementById("result-word");
+    const resultFrequency = document.getElementById("result-frequency");
+    const resultClassification = document.getElementById("result-classification");
+    const resultIpa = document.getElementById("result-ipa");
+    const resultMajor = document.getElementById("result-major");
+
+    const svgBox = document.getElementById("svg-box");
+    const greggSvg = document.getElementById("gregg-svg");
+    const orientationToggle = document.getElementById("orientation-toggle");
+
+    const themeToggle = document.getElementById("theme-toggle");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const word = input.value.trim();
+
+      results.classList.add("hidden");
+      errorBox.classList.add("hidden");
+      svgBox.classList.add("hidden");
+
+      orientationToggle.checked = false;
+      greggSvg.classList.remove("normal-svg");
+
+      if (!word) {
+        showError("Input not found");
+        return;
+      }
+
+      try {
+        const response = await fetch(`/lookup?word=${encodeURIComponent(word)}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          showError(data.error || `${word} not found`);
+          return;
+        }
+
+	resultWord.textContent = `Result for - ${toDisplayTitle(data.word)}`;
+
+        resultFrequency.textContent =
+          `${data.frequency_rating}/100 | ${data.frequency_commonness}`;
+
+        resultClassification.textContent = data.classification;
+        resultIpa.textContent = data.ipa || "Not found";
+        resultMajor.textContent = data.major_system_value || "No consonant value";
+
+        if (data.svg_available && data.svg_url) {
+          greggSvg.src = data.svg_url;
+          svgBox.classList.remove("hidden");
+        }
+
+        results.classList.remove("hidden");
+
+      } catch (error) {
+        showError("Could not connect to the lookup server.");
+      }
+    });
+
+    orientationToggle.addEventListener("change", () => {
+      if (orientationToggle.checked) {
+        greggSvg.classList.add("normal-svg");
+      } else {
+        greggSvg.classList.remove("normal-svg");
+      }
+    });
+
+    themeToggle.addEventListener("change", () => {
+      if (themeToggle.checked) {
+        document.body.classList.add("dark-mode");
+      } else {
+        document.body.classList.remove("dark-mode");
+      }
+    });
+
+    function toDisplayTitle(text) {
+      /*
+        Convert lookup display text into readable title form.
+    
+        Examples:
+          "i will" -> "I will"
+          "this is" -> "This is"
+      */
+    
+      if (!text) {
+        return "";
+      }
+    
+      return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+
+    function showError(message) {
+      errorBox.textContent = message;
+      errorBox.classList.remove("hidden");
+    }
+  </script>
+</body>
+</html>
