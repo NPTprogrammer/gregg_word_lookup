@@ -2,21 +2,19 @@
   Shorthand Word Lookup Web App
   =============================
 
-  Main browser interface for the local shorthand lookup application.
+  Main browser interface for the local Gregg shorthand lookup application.
 
-  This page allows the user to enter an English word or phrase and retrieve:
-
+  Features:
+  - Word / phrase lookup
   - Frequency Rating
   - Grammatical Classification
   - IPA transcription
-  - Major system value derived from IPA
-  - Gregg shorthand SVG, if available
-
-  Features:
+  - Major system value
+  - Gregg shorthand SVG display
   - MIRRORED | NORMAL image orientation toggle
   - LIGHT | DARK theme toggle
-  - In dark mode, the SVG image is visually inverted
-  - Source SVG files are not modified
+  - Vim-style "/" keybinding
+  - Enter submits search and closes the input box
 -->
 
 <!doctype html>
@@ -58,7 +56,7 @@
           id="word-input"
           name="word"
           type="text"
-          placeholder="example: this is"
+          placeholder="press / to search"
           autocomplete="off"
           autofocus
         >
@@ -67,7 +65,7 @@
       </div>
     </form>
 
-    <!-- Result card -->
+    <!-- Results -->
     <section id="results" class="card hidden">
       <h2 id="result-word"></h2>
 
@@ -95,7 +93,7 @@
         </tbody>
       </table>
 
-      <!-- SVG display -->
+      <!-- Gregg SVG display -->
       <div id="svg-box" class="svg-box hidden">
         <h3>Gregg shorthand</h3>
 
@@ -118,24 +116,25 @@
       </div>
     </section>
 
-    <!-- Error message area -->
+    <!-- Errors -->
     <section id="error-box" class="error hidden"></section>
   </main>
 
   <script>
     /*
-      Shorthand Word Lookup Frontend Script
-      =====================================
+      Frontend behavior
+      =================
 
-      Responsibilities:
-      1. Capture the lookup form submission.
-      2. Send the word or phrase to the Flask backend.
-      3. Render frequency, grammar, IPA, Major value, and SVG.
-      4. Toggle Gregg SVG display between MIRRORED and NORMAL.
-      5. Toggle page theme between LIGHT and DARK.
-      6. In dark mode, visually invert the SVG.
-      7. Display readable validation errors.
+      Keyboard workflow:
+      - "/" focuses and clears the search field.
+      - Enter submits the lookup.
+      - After Enter, the input loses focus.
+      - The user can press "/" again for the next lookup.
     */
+
+    // -----------------------------------------------------------------------
+    // DOM references
+    // -----------------------------------------------------------------------
 
     const form = document.getElementById("lookup-form");
     const input = document.getElementById("word-input");
@@ -155,15 +154,24 @@
 
     const themeToggle = document.getElementById("theme-toggle");
 
+    // -----------------------------------------------------------------------
+    // Lookup form submission
+    // -----------------------------------------------------------------------
+
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
 
       const word = input.value.trim();
 
+      // Close the entry box after Return/Enter submits the lookup.
+      input.blur();
+
+      // Clear old output before running a new lookup.
       results.classList.add("hidden");
       errorBox.classList.add("hidden");
       svgBox.classList.add("hidden");
 
+      // Reset image orientation for each new lookup.
       orientationToggle.checked = false;
       greggSvg.classList.remove("normal-svg");
 
@@ -181,7 +189,7 @@
           return;
         }
 
-	resultWord.textContent = `Result for - ${toDisplayTitle(data.word)}`;
+        resultWord.textContent = `Result for - ${toDisplayTitle(data.word)}`;
 
         resultFrequency.textContent =
           `${data.frequency_rating}/100 | ${data.frequency_commonness}`;
@@ -202,6 +210,10 @@
       }
     });
 
+    // -----------------------------------------------------------------------
+    // SVG orientation toggle
+    // -----------------------------------------------------------------------
+
     orientationToggle.addEventListener("change", () => {
       if (orientationToggle.checked) {
         greggSvg.classList.add("normal-svg");
@@ -209,6 +221,10 @@
         greggSvg.classList.remove("normal-svg");
       }
     });
+
+    // -----------------------------------------------------------------------
+    // Theme toggle
+    // -----------------------------------------------------------------------
 
     themeToggle.addEventListener("change", () => {
       if (themeToggle.checked) {
@@ -218,21 +234,50 @@
       }
     });
 
-    function toDisplayTitle(text) {
+    // -----------------------------------------------------------------------
+    // Vim-style slash search keybinding
+    // -----------------------------------------------------------------------
+
+    document.addEventListener("keydown", (event) => {
       /*
-        Convert lookup display text into readable title form.
-    
-        Examples:
-          "i will" -> "I will"
-          "this is" -> "This is"
+        Press "/" to prepare a fresh search.
+
+        This clears the old entry and focuses the input.
+        It is disabled while already typing in an input or textarea.
       */
-    
+
+      const activeElement = document.activeElement;
+
+      const isTyping =
+        activeElement.tagName === "INPUT" ||
+        activeElement.tagName === "TEXTAREA";
+
+      if (isTyping) {
+        return;
+      }
+
+      if (event.key === "/") {
+        event.preventDefault();
+        input.value = "";
+        input.focus();
+      }
+    });
+
+    // -----------------------------------------------------------------------
+    // Text display helper
+    // -----------------------------------------------------------------------
+
+    function toDisplayTitle(text) {
       if (!text) {
         return "";
       }
-    
+
       return text.charAt(0).toUpperCase() + text.slice(1);
     }
+
+    // -----------------------------------------------------------------------
+    // Error display helper
+    // -----------------------------------------------------------------------
 
     function showError(message) {
       errorBox.textContent = message;
