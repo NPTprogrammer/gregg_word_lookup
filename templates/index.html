@@ -33,649 +33,388 @@
 <!doctype html>
 
 <html lang="en">
+  <head>
+    <meta charset="utf-8" />
 
-<head>
-  <meta charset="utf-8">
+    <title>Gregg Lookup Console</title>
 
-  <title>Gregg Lookup Console</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1"
-  >
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
 
-  <link
-    rel="stylesheet"
-    href="/static/style.css"
-  >
-</head>
-
-
-<body>
-
-<main class="editor-shell">
-
-
-  <!-- ============================================================
+  <body>
+    <main class="editor-shell">
+      <!-- ============================================================
        TOP BAR
        ============================================================ -->
 
-  <header class="editor-topbar">
+      <header class="editor-topbar">
+        <div class="app-title">Gregg Lookup</div>
 
-    <div class="app-title">
-      Gregg Lookup
-    </div>
+        <div class="top-controls">
+          <span class="theme-label"> LIGHT </span>
 
+          <label class="toggle-switch">
+            <input
+              id="theme-toggle"
+              type="checkbox"
+              aria-label="Toggle dark mode"
+            />
 
-    <div class="top-controls">
+            <span class="toggle-slider"></span>
+          </label>
 
-      <span class="theme-label">
-        LIGHT
-      </span>
+          <span class="theme-label"> DARK </span>
 
-      <label class="toggle-switch">
+          <button id="help-button" type="button" class="help-button">?</button>
+        </div>
+      </header>
 
-        <input
-          id="theme-toggle"
-          type="checkbox"
-          aria-label="Toggle dark mode"
-        >
-
-        <span class="toggle-slider"></span>
-
-      </label>
-
-      <span class="theme-label">
-        DARK
-      </span>
-
-
-      <button
-        id="help-button"
-        type="button"
-        class="help-button"
-      >
-        ?
-      </button>
-
-    </div>
-
-  </header>
-
-
-
-  <!-- ============================================================
+      <!-- ============================================================
        MAIN BUFFER - Gregg image area
        ============================================================ -->
 
-  <section class="editor-buffer">
+      <section class="editor-buffer">
+        <div id="svg-box" class="svg-box hidden">
+          <img id="gregg-svg" alt="Gregg shorthand SVG" />
 
+          <div class="orientation-control">
+            <span> MIRRORED </span>
 
-    <div
-      id="svg-box"
-      class="svg-box hidden"
-    >
+            <label class="toggle-switch">
+              <input id="orientation-toggle" type="checkbox" />
 
-      <img
-        id="gregg-svg"
-        alt="Gregg shorthand SVG"
-      >
+              <span class="toggle-slider"></span>
+            </label>
 
+            <span> NORMAL </span>
+          </div>
+        </div>
 
-      <div class="orientation-control">
+        <div id="empty-buffer" class="empty-buffer">
+          Press / to begin search
+        </div>
+      </section>
 
-        <span>
-          MIRRORED
-        </span>
-
-
-        <label class="toggle-switch">
-
-          <input
-            id="orientation-toggle"
-            type="checkbox"
-          >
-
-          <span class="toggle-slider"></span>
-
-        </label>
-
-
-        <span>
-          NORMAL
-        </span>
-
-      </div>
-
-    </div>
-
-
-    <div
-      id="empty-buffer"
-      class="empty-buffer"
-    >
-
-      Press / to begin search
-
-    </div>
-
-
-  </section>
-
-
-
-  <!-- ============================================================
+      <!-- ============================================================
        COMMAND LINE
        ============================================================ -->
 
-  <form
-    id="lookup-form"
-    class="command-line"
-  >
+      <form id="lookup-form" class="command-line">
+        <span class="prompt-symbol"> / </span>
 
-    <span class="prompt-symbol">
-      /
-    </span>
+        <input
+          id="word-input"
+          name="word"
+          type="text"
+          placeholder="search word or phrase"
+          autocomplete="off"
+        />
 
+        <button type="submit">Lookup</button>
+      </form>
 
-    <input
-      id="word-input"
-      name="word"
-      type="text"
-      placeholder="search word or phrase"
-      autocomplete="off"
-    >
-
-
-    <button type="submit">
-      Lookup
-    </button>
-
-
-  </form>
-
-
-
-  <!-- ============================================================
+      <!-- ============================================================
        STATUS / DATA PANEL
        ============================================================ -->
 
-  <section
-    id="results"
-    class="status-panel hidden"
-  >
+      <section id="results" class="status-panel hidden">
+        <div class="status-title">
+          <span id="result-word"></span>
+        </div>
 
+        <div class="status-grid">
+          <div>
+            <strong> Frequency </strong>
 
-    <div class="status-title">
+            <span id="result-frequency"></span>
+          </div>
 
-      <span id="result-word"></span>
+          <div>
+            <strong> Class </strong>
 
-    </div>
+            <span id="result-classification"></span>
+          </div>
 
+          <div>
+            <strong> IPA </strong>
 
-    <div class="status-grid">
+            <span id="result-ipa"></span>
+          </div>
 
+          <div>
+            <strong> Major </strong>
 
-      <div>
+            <span id="result-major"></span>
+          </div>
+        </div>
+      </section>
 
-        <strong>
-          Frequency
-        </strong>
-
-        <span id="result-frequency"></span>
-
-      </div>
-
-
-
-      <div>
-
-        <strong>
-          Class
-        </strong>
-
-        <span id="result-classification"></span>
-
-      </div>
-
-
-
-      <div>
-
-        <strong>
-          IPA
-        </strong>
-
-        <span id="result-ipa"></span>
-
-      </div>
-
-
-
-      <div>
-
-        <strong>
-          Major
-        </strong>
-
-        <span id="result-major"></span>
-
-      </div>
-
-
-    </div>
-
-  </section>
-
-
-
-  <!-- ============================================================
+      <!-- ============================================================
        ERROR OUTPUT
        ============================================================ -->
 
-  <section
-    id="error-box"
-    class="error hidden"
-  ></section>
+      <section id="error-box" class="error hidden"></section>
 
-
-
-  <!-- ============================================================
+      <!-- ============================================================
        HELP PANEL
        ============================================================ -->
 
-  <section
-    id="help-panel"
-    class="help-panel hidden"
-  >
+      <section id="help-panel" class="help-panel hidden">
+        <div class="help-card">
+          <button id="help-close-button" type="button">Close</button>
 
-    <div class="help-card">
+          <h2>Cheat Sheet</h2>
 
+          <h3>Keyboard</h3>
 
-      <button
-        id="help-close-button"
-        type="button"
-      >
+          <table>
+            <tr>
+              <th>/</th>
 
-        Close
+              <td>Start a fresh search</td>
+            </tr>
 
-      </button>
+            <tr>
+              <th>Enter</th>
 
+              <td>Run lookup and close the search box</td>
+            </tr>
 
-      <h2>
-        Cheat Sheet
-      </h2>
+            <tr>
+              <th>m</th>
 
+              <td>Toggle MIRRORED | NORMAL image orientation</td>
+            </tr>
 
-      <h3>
-        Keyboard
-      </h3>
+            <tr>
+              <th>d</th>
 
+              <td>Toggle LIGHT | DARK mode</td>
+            </tr>
 
-      <table>
+            <tr>
+              <th>?</th>
 
-        <tr>
+              <td>Open or close help</td>
+            </tr>
 
-          <th>/</th>
+            <tr>
+              <th>Esc</th>
 
-          <td>
-            New search
-          </td>
+              <td>Close help</td>
+            </tr>
+          </table>
+        </div>
+      </section>
+    </main>
 
-        </tr>
-
-
-        <tr>
-
-          <th>Enter</th>
-
-          <td>
-            Run lookup
-          </td>
-
-        </tr>
-
-
-        <tr>
-
-          <th>?</th>
-
-          <td>
-            Toggle help
-          </td>
-
-        </tr>
-
-
-        <tr>
-
-          <th>Esc</th>
-
-          <td>
-            Close help
-          </td>
-
-        </tr>
-
-      </table>
-
-
-    </div>
-
-  </section>
-
-
-</main>
-
-
-
-<script>
-
-
-/*
+    <script>
+      /*
   ==============================================================
   DOM REFERENCES
   ==============================================================
 */
 
+      const form = document.getElementById("lookup-form");
+      const input = document.getElementById("word-input");
 
-const form = document.getElementById("lookup-form");
-const input = document.getElementById("word-input");
+      const results = document.getElementById("results");
+      const errorBox = document.getElementById("error-box");
 
+      const resultWord = document.getElementById("result-word");
+      const resultFrequency = document.getElementById("result-frequency");
+      const resultClassification = document.getElementById(
+        "result-classification"
+      );
+      const resultIpa = document.getElementById("result-ipa");
+      const resultMajor = document.getElementById("result-major");
 
-const results = document.getElementById("results");
-const errorBox = document.getElementById("error-box");
+      const svgBox = document.getElementById("svg-box");
+      const emptyBuffer = document.getElementById("empty-buffer");
+      const greggSvg = document.getElementById("gregg-svg");
 
+      const orientationToggle = document.getElementById("orientation-toggle");
 
-const resultWord = document.getElementById("result-word");
-const resultFrequency = document.getElementById("result-frequency");
-const resultClassification = document.getElementById("result-classification");
-const resultIpa = document.getElementById("result-ipa");
-const resultMajor = document.getElementById("result-major");
+      const themeToggle = document.getElementById("theme-toggle");
 
+      const helpButton = document.getElementById("help-button");
 
-const svgBox = document.getElementById("svg-box");
-const emptyBuffer = document.getElementById("empty-buffer");
-const greggSvg = document.getElementById("gregg-svg");
+      const helpPanel = document.getElementById("help-panel");
 
+      const helpCloseButton = document.getElementById("help-close-button");
 
-const orientationToggle =
-  document.getElementById("orientation-toggle");
-
-
-const themeToggle =
-  document.getElementById("theme-toggle");
-
-
-const helpButton =
-  document.getElementById("help-button");
-
-
-const helpPanel =
-  document.getElementById("help-panel");
-
-
-const helpCloseButton =
-  document.getElementById("help-close-button");
-
-
-
-
-/*
+      /*
   ==============================================================
   LOOKUP ENGINE
   ==============================================================
 */
 
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
 
-form.addEventListener(
-  "submit",
-  async (event) => {
+        const word = input.value.trim();
 
-    event.preventDefault();
+        input.blur();
 
+        if (!word) {
+          showError("Input not found");
 
-    const word =
-      input.value.trim();
+          return;
+        }
 
+        try {
+          const response = await fetch(
+            `/lookup?word=${encodeURIComponent(word)}`
+          );
 
-    input.blur();
+          const data = await response.json();
 
+          if (!response.ok) {
+            showError(data.error);
 
-    if (!word) {
+            return;
+          }
 
-      showError("Input not found");
+          resultWord.textContent = `Result for - ${capitalize(data.word)}`;
 
-      return;
+          resultFrequency.textContent = `${data.frequency_rating}/100 | ${data.frequency_commonness}`;
 
-    }
+          resultClassification.textContent = data.classification;
 
+          resultIpa.textContent = data.ipa || "Not found";
 
-    try {
+          resultMajor.textContent = data.major_system_value || "None";
 
+          if (data.svg_available) {
+            greggSvg.src = data.svg_url;
 
-      const response =
-        await fetch(
-          `/lookup?word=${encodeURIComponent(word)}`
-        );
+            svgBox.classList.remove("hidden");
 
+            emptyBuffer.classList.add("hidden");
+          }
 
-      const data =
-        await response.json();
+          results.classList.remove("hidden");
+        } catch {
+          showError("Server unavailable");
+        }
+      });
 
-
-
-      if (!response.ok) {
-
-        showError(data.error);
-
-        return;
-
-      }
-
-
-
-      resultWord.textContent =
-        `Result for - ${capitalize(data.word)}`;
-
-
-      resultFrequency.textContent =
-        `${data.frequency_rating}/100 | ${data.frequency_commonness}`;
-
-
-      resultClassification.textContent =
-        data.classification;
-
-
-      resultIpa.textContent =
-        data.ipa || "Not found";
-
-
-      resultMajor.textContent =
-        data.major_system_value || "None";
-
-
-
-      if (data.svg_available) {
-
-
-        greggSvg.src =
-          data.svg_url;
-
-
-        svgBox.classList.remove("hidden");
-
-        emptyBuffer.classList.add("hidden");
-
-
-      }
-
-
-      results.classList.remove("hidden");
-
-
-    }
-
-    catch {
-
-      showError("Server unavailable");
-
-    }
-
-
-  }
-);
-
-
-
-
-/*
+      /*
   ==============================================================
   CONTROLS
   ==============================================================
 */
 
+      orientationToggle.addEventListener("change", () => {
+        greggSvg.classList.toggle("normal-svg");
+      });
 
-orientationToggle.addEventListener(
-  "change",
-  () => {
+      themeToggle.addEventListener("change", () => {
+        document.body.classList.toggle("dark-mode");
+      });
 
-    greggSvg.classList.toggle(
-      "normal-svg"
-    );
+      helpButton.addEventListener("click", () => {
+        helpPanel.classList.toggle("hidden");
+      });
 
-  }
-);
+      helpCloseButton.addEventListener("click", () => {
+        helpPanel.classList.add("hidden");
+      });
 
-
-
-themeToggle.addEventListener(
-  "change",
-  () => {
-
-    document.body.classList.toggle(
-      "dark-mode"
-    );
-
-  }
-);
-
-
-
-helpButton.addEventListener(
-  "click",
-  () => {
-
-    helpPanel.classList.toggle("hidden");
-
-  }
-);
-
-
-
-helpCloseButton.addEventListener(
-  "click",
-  () => {
-
-    helpPanel.classList.add("hidden");
-
-  }
-);
-
-
-
-
-/*
+      /*
   ==============================================================
   KEYBOARD CONTROLS
   ==============================================================
 */
 
+      document.addEventListener("keydown", (event) => {
+        /*
+      Global shortcuts.
 
-document.addEventListener(
-  "keydown",
-  (event) => {
+      ?     Toggle help
+      Esc   Close help
 
+      These are checked first so they work from most page states.
+    */
 
-    if (event.key === "?") {
+        if (event.key === "?") {
+          event.preventDefault();
 
-      event.preventDefault();
+          helpPanel.classList.toggle("hidden");
 
-      helpPanel.classList.toggle("hidden");
+          return;
+        }
 
-      return;
+        if (event.key === "Escape") {
+          helpPanel.classList.add("hidden");
 
-    }
+          return;
+        }
 
+        /*
+      Do not trigger editor shortcuts while typing in the search box.
+    */
 
-    if (event.key === "Escape") {
+        if (document.activeElement === input) {
+          return;
+        }
 
-      helpPanel.classList.add("hidden");
+        /*
+      Editor-style shortcuts.
 
-      return;
+      /     Start fresh search
+      m     Toggle MIRRORED | NORMAL
+      d     Toggle LIGHT | DARK
+    */
 
-    }
+        if (event.key === "/") {
+          event.preventDefault();
 
+          input.value = "";
 
-    if (document.activeElement === input) {
+          input.focus();
 
-      return;
+          return;
+        }
 
-    }
+        if (event.key.toLowerCase() === "m") {
+          event.preventDefault();
 
+          orientationToggle.checked = !orientationToggle.checked;
 
-    if (event.key === "/") {
+          greggSvg.classList.toggle("normal-svg", orientationToggle.checked);
 
-      event.preventDefault();
+          return;
+        }
 
-      input.value = "";
+        if (event.key.toLowerCase() === "d") {
+          event.preventDefault();
 
-      input.focus();
+          themeToggle.checked = !themeToggle.checked;
 
-    }
+          document.body.classList.toggle("dark-mode", themeToggle.checked);
 
+          return;
+        }
+      });
 
-  }
-);
-
-
-
-
-/*
+      /*
   ==============================================================
   HELPERS
   ==============================================================
 */
 
+      function capitalize(text) {
+        return text.charAt(0).toUpperCase() + text.slice(1);
+      }
 
-function capitalize(text) {
+      function showError(message) {
+        errorBox.textContent = message;
 
-  return (
-    text.charAt(0).toUpperCase()
-    +
-    text.slice(1)
-  );
-
-}
-
-
-
-function showError(message) {
-
-  errorBox.textContent =
-    message;
-
-
-  errorBox.classList.remove(
-    "hidden"
-  );
-
-}
-
-
-</script>
-
-
-</body>
-
+        errorBox.classList.remove("hidden");
+      }
+    </script>
+  </body>
 </html>
