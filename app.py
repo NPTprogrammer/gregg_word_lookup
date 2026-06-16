@@ -407,33 +407,43 @@ def ipa_to_major(ipa_text: str) -> str:
 # SVG lookup
 # ---------------------------------------------------------------------------
 
+
 def find_svg_filename(word_or_phrase_key: str) -> Optional[str]:
     """
     Find a matching Gregg shorthand SVG file.
 
+    The lookup first checks the expected lowercase filename directly.
+    If that fails, it performs a case-insensitive scan of the SVG directory.
+
+    This matters because macOS is often case-insensitive, while Render/Linux
+    is case-sensitive.
+
     Examples:
-        jewel   -> jewel.svg
-        this is -> this_is.svg
+        aeolian -> aeolian.svg or Aeolian.svg
+        this_is -> this_is.svg or This_Is.svg
     """
 
     if not word_or_phrase_key:
         return None
 
-    candidate = SVG_DIR / f"{word_or_phrase_key}.svg"
+    expected_name = f"{word_or_phrase_key}.svg"
+    candidate = SVG_DIR / expected_name
 
     try:
         candidate = candidate.resolve()
     except FileNotFoundError:
-        return None
-
-    if SVG_DIR not in candidate.parents and candidate != SVG_DIR:
-        return None
+        candidate = SVG_DIR / expected_name
 
     if candidate.exists() and candidate.suffix.lower() == ".svg":
         return candidate.name
 
-    return None
+    expected_lower = expected_name.lower()
 
+    for svg_file in SVG_DIR.glob("*.svg"):
+        if svg_file.name.lower() == expected_lower:
+            return svg_file.name
+
+    return None
 
 # ---------------------------------------------------------------------------
 # Web routes
