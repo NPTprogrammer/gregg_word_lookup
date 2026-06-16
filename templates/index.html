@@ -4,30 +4,18 @@
 
   Editor-inspired interface.
 
-  Design influences:
-  - Neovim command workflow
-  - Emacs buffer/status layout
-  - Flashcard training systems
-
-  Layout:
-
-  HEADER
-    Application controls
-
-  BUFFER
-    Primary Gregg SVG display
-
-  COMMAND LINE
-    Search input
-
-  STATUS PANEL
-    Linguistic metadata
-
-  Keyboard:
-    /      New search
-    Enter  Execute lookup
-    ?      Help
-    Esc    Close help
+  Features:
+  - Word / phrase lookup
+  - Gregg SVG display
+  - Loading SVG while searching
+  - MIRRORED | NORMAL toggle
+  - LIGHT | DARK toggle
+  - / key starts fresh search
+  - Enter submits search
+  - m toggles mirrored / normal
+  - d toggles dark / light
+  - ? opens help
+  - Esc closes help
 -->
 
 <!doctype html>
@@ -67,12 +55,19 @@
 
           <span class="theme-label"> DARK </span>
 
-          <button id="help-button" type="button" class="help-button">?</button>
+          <button
+            id="help-button"
+            type="button"
+            class="help-button"
+            aria-label="Open help"
+          >
+            ?
+          </button>
         </div>
       </header>
 
       <!-- ============================================================
-       MAIN BUFFER - Gregg image area
+       MAIN BUFFER
        ============================================================ -->
 
       <section class="editor-buffer">
@@ -83,7 +78,11 @@
             <span> MIRRORED </span>
 
             <label class="toggle-switch">
-              <input id="orientation-toggle" type="checkbox" />
+              <input
+                id="orientation-toggle"
+                type="checkbox"
+                aria-label="Toggle mirrored and normal image orientation"
+              />
 
               <span class="toggle-slider"></span>
             </label>
@@ -116,7 +115,7 @@
       </form>
 
       <!-- ============================================================
-       STATUS / DATA PANEL
+       STATUS PANEL
        ============================================================ -->
 
       <section id="results" class="status-panel hidden">
@@ -161,7 +160,11 @@
        HELP PANEL
        ============================================================ -->
 
-      <section id="help-panel" class="help-panel hidden">
+      <section
+        id="help-panel"
+        class="help-panel hidden"
+        aria-label="Help cheat sheet"
+      >
         <div class="help-card">
           <button id="help-close-button" type="button">Close</button>
 
@@ -172,53 +175,58 @@
           <table>
             <tr>
               <th>/</th>
-
               <td>Start a fresh search</td>
             </tr>
 
             <tr>
               <th>Enter</th>
-
               <td>Run lookup and close the search box</td>
             </tr>
 
             <tr>
               <th>m</th>
-
               <td>Toggle MIRRORED | NORMAL image orientation</td>
             </tr>
 
             <tr>
               <th>d</th>
-
               <td>Toggle LIGHT | DARK mode</td>
             </tr>
 
             <tr>
               <th>?</th>
-
               <td>Open or close help</td>
             </tr>
 
             <tr>
               <th>Esc</th>
-
               <td>Close help</td>
             </tr>
           </table>
+
+          <h3>Examples</h3>
+
+          <pre>
+the
+jewel
+Aeolian
+i will
+this is</pre
+          >
         </div>
       </section>
     </main>
 
     <script>
       /*
-  ==============================================================
-  DOM REFERENCES
-  ==============================================================
-*/
+        ==============================================================
+        DOM REFERENCES
+        ==============================================================
+      */
 
       const form = document.getElementById("lookup-form");
       const input = document.getElementById("word-input");
+      const lookupButton = form.querySelector("button[type='submit']");
 
       const results = document.getElementById("results");
       const errorBox = document.getElementById("error-box");
@@ -246,10 +254,10 @@
       const helpCloseButton = document.getElementById("help-close-button");
 
       /*
-  ==============================================================
-  LOOKUP ENGINE
-  ==============================================================
-*/
+        ==============================================================
+        LOOKUP ENGINE
+        ==============================================================
+      */
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -264,6 +272,8 @@
           return;
         }
 
+        showLoadingSvg();
+
         try {
           const response = await fetch(
             `/lookup?word=${encodeURIComponent(word)}`
@@ -272,7 +282,9 @@
           const data = await response.json();
 
           if (!response.ok) {
-            showError(data.error);
+            hideLoadingSvg();
+
+            showError(data.error || "Lookup failed");
 
             return;
           }
@@ -287,32 +299,71 @@
 
           resultMajor.textContent = data.major_system_value || "None";
 
-          if (data.svg_available) {
+          if (data.svg_available && data.svg_url) {
             greggSvg.src = data.svg_url;
 
+            svgBox.classList.remove("loading");
             svgBox.classList.remove("hidden");
 
             emptyBuffer.classList.add("hidden");
+
+            lookupButton.textContent = "Lookup";
+            lookupButton.disabled = false;
+          } else {
+            hideLoadingSvg();
           }
 
           results.classList.remove("hidden");
         } catch {
+          hideLoadingSvg();
+
           showError("Server unavailable");
         }
       });
 
       /*
-  ==============================================================
-  CONTROLS
-  ==============================================================
-*/
+        ==============================================================
+        LOADING STATE
+        ==============================================================
+      */
+      function showLoadingSvg() {
+        greggSvg.src = "/static/searching.svg";
+
+        greggSvg.classList.remove("normal-svg");
+        orientationToggle.checked = false;
+
+        svgBox.classList.add("loading");
+        svgBox.classList.remove("hidden");
+
+        emptyBuffer.classList.add("hidden");
+        results.classList.add("hidden");
+        errorBox.classList.add("hidden");
+
+        lookupButton.textContent = "Searching...";
+        lookupButton.disabled = true;
+      }
+      function hideLoadingSvg() {
+        svgBox.classList.remove("loading");
+        svgBox.classList.add("hidden");
+
+        emptyBuffer.classList.remove("hidden");
+
+        lookupButton.textContent = "Lookup";
+        lookupButton.disabled = false;
+      }
+
+      /*
+        ==============================================================
+        CONTROLS
+        ==============================================================
+      */
 
       orientationToggle.addEventListener("change", () => {
-        greggSvg.classList.toggle("normal-svg");
+        greggSvg.classList.toggle("normal-svg", orientationToggle.checked);
       });
 
       themeToggle.addEventListener("change", () => {
-        document.body.classList.toggle("dark-mode");
+        document.body.classList.toggle("dark-mode", themeToggle.checked);
       });
 
       helpButton.addEventListener("click", () => {
@@ -324,21 +375,12 @@
       });
 
       /*
-  ==============================================================
-  KEYBOARD CONTROLS
-  ==============================================================
-*/
+        ==============================================================
+        KEYBOARD CONTROLS
+        ==============================================================
+      */
 
       document.addEventListener("keydown", (event) => {
-        /*
-      Global shortcuts.
-
-      ?     Toggle help
-      Esc   Close help
-
-      These are checked first so they work from most page states.
-    */
-
         if (event.key === "?") {
           event.preventDefault();
 
@@ -353,21 +395,9 @@
           return;
         }
 
-        /*
-      Do not trigger editor shortcuts while typing in the search box.
-    */
-
         if (document.activeElement === input) {
           return;
         }
-
-        /*
-      Editor-style shortcuts.
-
-      /     Start fresh search
-      m     Toggle MIRRORED | NORMAL
-      d     Toggle LIGHT | DARK
-    */
 
         if (event.key === "/") {
           event.preventDefault();
@@ -401,12 +431,16 @@
       });
 
       /*
-  ==============================================================
-  HELPERS
-  ==============================================================
-*/
+        ==============================================================
+        HELPERS
+        ==============================================================
+      */
 
       function capitalize(text) {
+        if (!text) {
+          return "";
+        }
+
         return text.charAt(0).toUpperCase() + text.slice(1);
       }
 
