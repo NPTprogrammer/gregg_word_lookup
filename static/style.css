@@ -1,237 +1,126 @@
 /*
-  Shorthand Word Lookup Web App
-  =============================
+  Gregg Shorthand Lookup Console
+  ==============================
 
-  Stylesheet for the local shorthand study interface.
+  Editor-inspired interface.
 
-  Design goals:
-  - Minimal
-  - Legible
-  - Slightly bookish / copybook-like
-  - Good for focused study
-  - Works on both desktop and narrow screens
+  Design influences:
+  - Neovim / Emacs buffer layout
+  - Command-line search workflow
+  - Study-console / flashcard display
 
-  Features:
-  - MIRRORED | NORMAL SVG orientation toggle
-  - LIGHT | DARK theme toggle
-  - In dark mode, the SVG image is visually inverted
+  Color palette source:
+  - User content creation palette
+  - Light and dark modes use the same palette family
 */
-
 
 /* ---------------------------------------------------------------------------
    Theme variables
 --------------------------------------------------------------------------- */
 
 :root {
-  --bg: #f7f3ec;
-  --ink: #1f1b17;
-  --muted: #6f665c;
-  --card: #fffaf2;
-  --line: #d7c9b8;
-  --accent: #3f3328;
-  --error: #8a1f1f;
+  --bg: #c9bead;
+  --ink: #000917;
+  --muted: #5d5852;
+  --card: #b7c2d2;
+  --line: #8e8780;
+  --accent: #3d6b42;
+  --accent-secondary: #573a54;
+  --panel: #c9bead;
+  --buffer: #f7f3ec;
+  --error: #573a54;
 }
-
-
-/* ---------------------------------------------------------------------------
-   Dark mode variables
---------------------------------------------------------------------------- */
 
 .dark-mode {
-  --bg: #161412;
-  --ink: #f2eadf;
-  --muted: #b8aa99;
-  --card: #211d19;
-  --line: #4b4036;
-  --accent: #d8c7b3;
-  --error: #ffb4b4;
+  --bg: #000917;
+  --ink: #c9bead;
+  --muted: #b7c2d2;
+  --card: #454c58;
+  --line: #575d6a;
+  --accent: #a5cca9;
+  --accent-secondary: #c2a3bf;
+  --panel: #454c58;
+  --buffer: #161412;
+  --error: #c2a3bf;
 }
 
-
 /* ---------------------------------------------------------------------------
-   Global layout defaults
+   Global base
 --------------------------------------------------------------------------- */
 
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-size: 18px;
   background: var(--bg);
   color: var(--ink);
 }
 
-
 /* ---------------------------------------------------------------------------
-   Main page container
+   Editor shell
 --------------------------------------------------------------------------- */
 
-.container {
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 3rem 1.25rem;
+.editor-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows:
+    auto
+    minmax(360px, 1fr)
+    auto
+    auto
+    auto;
+  border: 1px solid var(--line);
 }
-
 
 /* ---------------------------------------------------------------------------
-   Headings
+   Top bar
 --------------------------------------------------------------------------- */
 
-h1 {
-  font-size: 2rem;
-  margin-bottom: 1rem;
-  font-weight: 600;
-}
-
-h2,
-h3 {
-  color: var(--ink);
-}
-
-
-/* ---------------------------------------------------------------------------
-   Form controls
---------------------------------------------------------------------------- */
-
-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  color: var(--muted);
-}
-
-.search-row {
+.editor-topbar {
   display: flex;
-  gap: 0.75rem;
-}
-
-input {
-  flex: 1;
-  padding: 0.75rem 0.9rem;
-  font-size: 1.1rem;
-  border: 1px solid var(--line);
-  background: #fff;
-  color: var(--ink);
-}
-
-.dark-mode input {
-  background: #2a251f;
-  color: var(--ink);
-}
-
-button {
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: white;
-  font-size: 1rem;
-  cursor: pointer;
-}
-
-.dark-mode button {
-  color: #161412;
-}
-
-button:hover {
-  opacity: 0.9;
-}
-
-
-/* ---------------------------------------------------------------------------
-   Result card
---------------------------------------------------------------------------- */
-
-.card {
-  margin-top: 2rem;
-  padding: 1.5rem;
-  background: var(--card);
-  border: 1px solid var(--line);
-}
-
-
-/* ---------------------------------------------------------------------------
-   Utility classes
---------------------------------------------------------------------------- */
-
-.hidden {
-  display: none;
-}
-
-
-/* ---------------------------------------------------------------------------
-   Result table
---------------------------------------------------------------------------- */
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 1rem;
-}
-
-th,
-td {
-  text-align: left;
-  padding: 0.65rem 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 1rem;
+  background: var(--panel);
   border-bottom: 1px solid var(--line);
-  vertical-align: top;
 }
 
-th {
-  width: 35%;
-  color: var(--muted);
-  font-weight: 500;
+.app-title {
+  font-weight: 700;
+  letter-spacing: 0.05em;
 }
 
-
-/* ---------------------------------------------------------------------------
-   Gregg SVG display
---------------------------------------------------------------------------- */
-
-.svg-box {
-  margin-top: 1.5rem;
-  padding: 1rem;
-  background: white;
-  border: 1px solid var(--line);
-}
-
-.dark-mode .svg-box {
-  background: #161412;
-}
-
-.svg-box img {
-  display: block;
-  max-width: 100%;
-  max-height: 260px;
-  margin-top: 1rem;
-}
-
-
-/* ---------------------------------------------------------------------------
-   SVG orientation toggle
---------------------------------------------------------------------------- */
-
-.orientation-control,
-.theme-control {
+.top-controls {
   display: flex;
   align-items: center;
   gap: 0.75rem;
 }
 
-.theme-control {
-  margin-bottom: 2rem;
-}
-
-.orientation-control {
-  margin-bottom: 1rem;
-}
-
-.orientation-label,
 .theme-label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   letter-spacing: 0.08em;
   color: var(--muted);
 }
+
+/* ---------------------------------------------------------------------------
+   Toggle switches
+--------------------------------------------------------------------------- */
 
 .toggle-switch {
   position: relative;
@@ -276,64 +165,196 @@ th {
   transform: translateX(26px);
 }
 
-
 /* ---------------------------------------------------------------------------
-   SVG image transformations
+   Buttons
 --------------------------------------------------------------------------- */
 
-/*
-  The raw SVG file is considered MIRRORED.
+button {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #000917;
+  cursor: pointer;
+  font-family: inherit;
+}
 
-  When the orientation toggle is set to NORMAL, this class flips the displayed
-  image horizontally without editing the SVG file.
-*/
+.dark-mode button {
+  color: #000917;
+}
+
+button:hover {
+  opacity: 0.88;
+}
+
+.help-button {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------------------
+   Main buffer
+--------------------------------------------------------------------------- */
+
+.editor-buffer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: var(--buffer);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.empty-buffer {
+  color: var(--muted);
+  font-size: 1.25rem;
+  letter-spacing: 0.04em;
+}
+
+/* ---------------------------------------------------------------------------
+   SVG display
+--------------------------------------------------------------------------- */
+
+.svg-box {
+  width: min(900px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.svg-box img {
+  display: block;
+  max-width: 100%;
+  max-height: 55vh;
+  object-fit: contain;
+}
 
 .normal-svg {
   transform: scaleX(-1);
 }
 
-/*
-  In dark mode, invert the SVG so black Gregg outlines become light.
-
-  This stacks visually with the normal-svg orientation transform because filter
-  and transform are separate CSS properties.
-*/
-
 .dark-mode .svg-box img {
   filter: invert(1);
 }
 
+.orientation-control {
+  margin-top: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+}
 
 /* ---------------------------------------------------------------------------
-   Error display
+   Command line
+--------------------------------------------------------------------------- */
+
+.command-line {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.prompt-symbol {
+  font-weight: 700;
+  color: var(--accent-secondary);
+  font-size: 1.25rem;
+}
+
+.command-line input {
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--line);
+  background: var(--buffer);
+  color: var(--ink);
+  font-size: 1.1rem;
+  font-family: inherit;
+}
+
+.command-line input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.command-line button {
+  padding: 0.65rem 1rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Status panel
+--------------------------------------------------------------------------- */
+
+.status-panel {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+
+.status-title {
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--line);
+  font-weight: 700;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.status-grid div {
+  padding: 0.75rem 1rem;
+  border-right: 1px solid var(--line);
+}
+
+.status-grid div:last-child {
+  border-right: none;
+}
+
+.status-grid strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.status-grid span {
+  font-size: 1.1rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Errors
 --------------------------------------------------------------------------- */
 
 .error {
-  margin-top: 1.5rem;
-  padding: 1rem;
+  padding: 0.8rem 1rem;
   color: var(--error);
-  border: 1px solid var(--error);
-  background: #fff5f5;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
 }
 
-.dark-mode .error {
-  background: #2a1515;
+.hidden {
+  display: none;
 }
 
 /* ---------------------------------------------------------------------------
-   Help / cheat sheet panel
+   Help panel
 --------------------------------------------------------------------------- */
-
-.help-button {
-  padding: 0.35rem 0.7rem;
-  font-weight: 700;
-}
 
 .help-panel {
   position: fixed;
   inset: 0;
   padding: 1.25rem;
-  background: rgba(0, 9, 23, 0.72);
+  background: rgba(0, 9, 23, 0.75);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -354,46 +375,87 @@ th {
   border: 1px solid var(--line);
 }
 
-.help-close-button {
-  float: right;
+.help-card h2 {
+  margin-top: 0;
 }
 
-.help-card pre {
-  padding: 1rem;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  overflow-x: auto;
+.help-card table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.help-card th,
+.help-card td {
+  padding: 0.65rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.help-card th {
+  width: 20%;
+  color: var(--muted);
+}
+
+.help-card button {
+  float: right;
+  padding: 0.45rem 0.8rem;
 }
 
 /* ---------------------------------------------------------------------------
-   Small-screen adjustment
+   Responsive layout
 --------------------------------------------------------------------------- */
 
-@media (max-width: 520px) {
-  .search-row {
+@media (max-width: 780px) {
+  .editor-topbar {
     flex-direction: column;
+    align-items: flex-start;
   }
 
-  button {
-    width: 100%;
-  }
-
-  th,
-  td {
-    display: block;
-    width: 100%;
-  }
-
-  th {
-    padding-bottom: 0.15rem;
-  }
-
-  td {
-    padding-top: 0.15rem;
-  }
-
-  .orientation-control,
-  .theme-control {
+  .top-controls {
     flex-wrap: wrap;
+  }
+
+  .status-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .status-grid div {
+    border-bottom: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 520px) {
+  .editor-shell {
+    grid-template-rows:
+      auto
+      minmax(300px, 1fr)
+      auto
+      auto
+      auto;
+  }
+
+  .editor-buffer {
+    padding: 1rem;
+  }
+
+  .command-line {
+    grid-template-columns: auto 1fr;
+  }
+
+  .command-line button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .status-grid div {
+    border-right: none;
+  }
+
+  .svg-box img {
+    max-height: 45vh;
   }
 }

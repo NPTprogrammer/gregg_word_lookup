@@ -1,484 +1,681 @@
 <!--
-  Shorthand Word Lookup Web App
-  =============================
+  Gregg Shorthand Lookup Console
+  ==============================
 
-  Main browser interface for the local Gregg shorthand lookup application.
+  Editor-inspired interface.
 
-  Features:
-  - Word / phrase lookup
-  - Frequency Rating
-  - Grammatical Classification
-  - IPA transcription
-  - Major system value
-  - Gregg shorthand SVG display
-  - MIRRORED | NORMAL image orientation toggle
-  - LIGHT | DARK theme toggle
-  - Vim-style "/" keybinding
-  - "?" help / cheat sheet overlay
-  - Enter submits search and closes the input box
+  Design influences:
+  - Neovim command workflow
+  - Emacs buffer/status layout
+  - Flashcard training systems
+
+  Layout:
+
+  HEADER
+    Application controls
+
+  BUFFER
+    Primary Gregg SVG display
+
+  COMMAND LINE
+    Search input
+
+  STATUS PANEL
+    Linguistic metadata
+
+  Keyboard:
+    /      New search
+    Enter  Execute lookup
+    ?      Help
+    Esc    Close help
 -->
 
 <!doctype html>
-<html lang="en">
-<head>
-  <!-- Basic metadata -->
-  <meta charset="utf-8">
-  <title>Shorthand Word Lookup</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- Local stylesheet served by Flask -->
-  <link rel="stylesheet" href="/static/style.css">
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+
+  <title>Gregg Lookup Console</title>
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <link
+    rel="stylesheet"
+    href="/static/style.css"
+  >
 </head>
 
+
 <body>
-  <main class="container">
 
-    <!-- Page title -->
-    <h1>Shorthand Word Lookup</h1>
+<main class="editor-shell">
 
-    <!--
-      Theme and Help Controls
 
-      LIGHT | DARK:
-      - Toggles the visual color scheme.
+  <!-- ============================================================
+       TOP BAR
+       ============================================================ -->
 
-      ?:
-      - Opens the cheat sheet.
-      - Also available from the keyboard with the "?" key.
-    -->
-    <div class="theme-control">
-      <span class="theme-label">LIGHT</span>
+  <header class="editor-topbar">
+
+    <div class="app-title">
+      Gregg Lookup
+    </div>
+
+
+    <div class="top-controls">
+
+      <span class="theme-label">
+        LIGHT
+      </span>
 
       <label class="toggle-switch">
+
         <input
           id="theme-toggle"
           type="checkbox"
-          aria-label="Toggle light and dark mode"
+          aria-label="Toggle dark mode"
         >
+
         <span class="toggle-slider"></span>
+
       </label>
 
-      <span class="theme-label">DARK</span>
+      <span class="theme-label">
+        DARK
+      </span>
+
 
       <button
         id="help-button"
         type="button"
         class="help-button"
-        aria-label="Open help"
       >
         ?
       </button>
+
     </div>
 
-    <!--
-      Lookup form
+  </header>
 
-      Keyboard workflow:
-      - Press "/" to focus and clear the search box.
-      - Type a word or phrase.
-      - Press Enter to submit.
-      - The input then loses focus, preparing the page for the next "/" command.
-    -->
-    <form id="lookup-form">
-      <label for="word-input">Word or phrase</label>
 
-      <div class="search-row">
-        <input
-          id="word-input"
-          name="word"
-          type="text"
-          placeholder="press / to search"
-          autocomplete="off"
-          autofocus
-        >
 
-        <button type="submit">Lookup</button>
+  <!-- ============================================================
+       MAIN BUFFER - Gregg image area
+       ============================================================ -->
+
+  <section class="editor-buffer">
+
+
+    <div
+      id="svg-box"
+      class="svg-box hidden"
+    >
+
+      <img
+        id="gregg-svg"
+        alt="Gregg shorthand SVG"
+      >
+
+
+      <div class="orientation-control">
+
+        <span>
+          MIRRORED
+        </span>
+
+
+        <label class="toggle-switch">
+
+          <input
+            id="orientation-toggle"
+            type="checkbox"
+          >
+
+          <span class="toggle-slider"></span>
+
+        </label>
+
+
+        <span>
+          NORMAL
+        </span>
+
       </div>
-    </form>
 
-    <!--
-      Results card
+    </div>
 
-      Hidden by default.
-      Shown after a successful backend lookup.
-    -->
-    <section id="results" class="card hidden">
-      <h2 id="result-word"></h2>
+
+    <div
+      id="empty-buffer"
+      class="empty-buffer"
+    >
+
+      Press / to begin search
+
+    </div>
+
+
+  </section>
+
+
+
+  <!-- ============================================================
+       COMMAND LINE
+       ============================================================ -->
+
+  <form
+    id="lookup-form"
+    class="command-line"
+  >
+
+    <span class="prompt-symbol">
+      /
+    </span>
+
+
+    <input
+      id="word-input"
+      name="word"
+      type="text"
+      placeholder="search word or phrase"
+      autocomplete="off"
+    >
+
+
+    <button type="submit">
+      Lookup
+    </button>
+
+
+  </form>
+
+
+
+  <!-- ============================================================
+       STATUS / DATA PANEL
+       ============================================================ -->
+
+  <section
+    id="results"
+    class="status-panel hidden"
+  >
+
+
+    <div class="status-title">
+
+      <span id="result-word"></span>
+
+    </div>
+
+
+    <div class="status-grid">
+
+
+      <div>
+
+        <strong>
+          Frequency
+        </strong>
+
+        <span id="result-frequency"></span>
+
+      </div>
+
+
+
+      <div>
+
+        <strong>
+          Class
+        </strong>
+
+        <span id="result-classification"></span>
+
+      </div>
+
+
+
+      <div>
+
+        <strong>
+          IPA
+        </strong>
+
+        <span id="result-ipa"></span>
+
+      </div>
+
+
+
+      <div>
+
+        <strong>
+          Major
+        </strong>
+
+        <span id="result-major"></span>
+
+      </div>
+
+
+    </div>
+
+  </section>
+
+
+
+  <!-- ============================================================
+       ERROR OUTPUT
+       ============================================================ -->
+
+  <section
+    id="error-box"
+    class="error hidden"
+  ></section>
+
+
+
+  <!-- ============================================================
+       HELP PANEL
+       ============================================================ -->
+
+  <section
+    id="help-panel"
+    class="help-panel hidden"
+  >
+
+    <div class="help-card">
+
+
+      <button
+        id="help-close-button"
+        type="button"
+      >
+
+        Close
+
+      </button>
+
+
+      <h2>
+        Cheat Sheet
+      </h2>
+
+
+      <h3>
+        Keyboard
+      </h3>
+
 
       <table>
-        <tbody>
-          <tr>
-            <th>Frequency Rating</th>
-            <td id="result-frequency"></td>
-          </tr>
 
-          <tr>
-            <th>Classification</th>
-            <td id="result-classification"></td>
-          </tr>
+        <tr>
 
-          <tr>
-            <th>IPA</th>
-            <td id="result-ipa"></td>
-          </tr>
+          <th>/</th>
 
-          <tr>
-            <th>Major system value</th>
-            <td id="result-major"></td>
-          </tr>
-        </tbody>
+          <td>
+            New search
+          </td>
+
+        </tr>
+
+
+        <tr>
+
+          <th>Enter</th>
+
+          <td>
+            Run lookup
+          </td>
+
+        </tr>
+
+
+        <tr>
+
+          <th>?</th>
+
+          <td>
+            Toggle help
+          </td>
+
+        </tr>
+
+
+        <tr>
+
+          <th>Esc</th>
+
+          <td>
+            Close help
+          </td>
+
+        </tr>
+
       </table>
 
-      <!--
-        Gregg SVG display
 
-        Hidden unless the backend reports that a matching SVG exists.
+    </div>
 
-        Orientation rule:
-        - Raw SVG is treated as MIRRORED.
-        - NORMAL applies a horizontal CSS transform.
-      -->
-      <div id="svg-box" class="svg-box hidden">
-        <h3>Gregg shorthand</h3>
+  </section>
 
-        <div class="orientation-control" aria-label="Gregg image orientation">
-          <span class="orientation-label">MIRRORED</span>
 
-          <label class="toggle-switch">
-            <input
-              id="orientation-toggle"
-              type="checkbox"
-              aria-label="Toggle between mirrored and normal Gregg image"
-            >
-            <span class="toggle-slider"></span>
-          </label>
+</main>
 
-          <span class="orientation-label">NORMAL</span>
-        </div>
 
-        <img id="gregg-svg" alt="Gregg shorthand SVG">
-      </div>
-    </section>
 
-    <!--
-      Error message area
+<script>
 
-      Hidden by default.
-      Used for invalid input, missing lookups, and server connection problems.
-    -->
-    <section id="error-box" class="error hidden"></section>
 
-    <!--
-      Help / Cheat Sheet Panel
+/*
+  ==============================================================
+  DOM REFERENCES
+  ==============================================================
+*/
 
-      Hidden by default.
 
-      Opens by:
-      - Clicking the ? button
-      - Pressing ?
+const form = document.getElementById("lookup-form");
+const input = document.getElementById("word-input");
 
-      Closes by:
-      - Pressing Escape
-      - Pressing Close
-      - Pressing ? again
 
-      This can grow gradually as the app develops.
-    -->
-    <section
-      id="help-panel"
-      class="help-panel hidden"
-      aria-label="Help cheat sheet"
-    >
-      <div class="help-card">
+const results = document.getElementById("results");
+const errorBox = document.getElementById("error-box");
 
-        <button
-          id="help-close-button"
-          type="button"
-          class="help-close-button"
-        >
-          Close
-        </button>
 
-        <h2>Cheat Sheet</h2>
+const resultWord = document.getElementById("result-word");
+const resultFrequency = document.getElementById("result-frequency");
+const resultClassification = document.getElementById("result-classification");
+const resultIpa = document.getElementById("result-ipa");
+const resultMajor = document.getElementById("result-major");
 
-        <h3>Keyboard Controls</h3>
 
-        <table>
-          <tbody>
-            <tr>
-              <th>/</th>
-              <td>Start a new search</td>
-            </tr>
+const svgBox = document.getElementById("svg-box");
+const emptyBuffer = document.getElementById("empty-buffer");
+const greggSvg = document.getElementById("gregg-svg");
 
-            <tr>
-              <th>Enter</th>
-              <td>Submit search and close the input box</td>
-            </tr>
 
-            <tr>
-              <th>?</th>
-              <td>Open or close this help sheet</td>
-            </tr>
+const orientationToggle =
+  document.getElementById("orientation-toggle");
 
-            <tr>
-              <th>Esc</th>
-              <td>Close this help sheet</td>
-            </tr>
-          </tbody>
-        </table>
 
-        <h3>Search Examples</h3>
+const themeToggle =
+  document.getElementById("theme-toggle");
 
-        <p>Try single words or common phrases:</p>
 
-        <pre>the
-jewel
-Aeolian
-i will
-this is</pre>
+const helpButton =
+  document.getElementById("help-button");
 
-        <h3>Display Controls</h3>
 
-        <p>
-          <strong>MIRRORED | NORMAL</strong> flips the Gregg shorthand image.
-        </p>
+const helpPanel =
+  document.getElementById("help-panel");
 
-        <p>
-          <strong>LIGHT | DARK</strong> changes the color theme.
-          In dark mode, the SVG image is visually inverted.
-        </p>
 
-      </div>
-    </section>
-  </main>
+const helpCloseButton =
+  document.getElementById("help-close-button");
 
-  <script>
-    /*
-      Frontend behavior
-      =================
 
-      Responsibilities:
-      1. Capture lookup form submission.
-      2. Send the word or phrase to the Flask backend.
-      3. Render frequency, grammar, IPA, Major value, and SVG.
-      4. Toggle Gregg SVG display between MIRRORED and NORMAL.
-      5. Toggle page theme between LIGHT and DARK.
-      6. Support Vim-style "/" search focus.
-      7. Support "?" help overlay.
-      8. Display readable validation errors.
-    */
 
-    // -----------------------------------------------------------------------
-    // DOM references
-    // -----------------------------------------------------------------------
 
-    const form = document.getElementById("lookup-form");
-    const input = document.getElementById("word-input");
+/*
+  ==============================================================
+  LOOKUP ENGINE
+  ==============================================================
+*/
 
-    const results = document.getElementById("results");
-    const errorBox = document.getElementById("error-box");
 
-    const resultWord = document.getElementById("result-word");
-    const resultFrequency = document.getElementById("result-frequency");
-    const resultClassification = document.getElementById("result-classification");
-    const resultIpa = document.getElementById("result-ipa");
-    const resultMajor = document.getElementById("result-major");
+form.addEventListener(
+  "submit",
+  async (event) => {
 
-    const svgBox = document.getElementById("svg-box");
-    const greggSvg = document.getElementById("gregg-svg");
-    const orientationToggle = document.getElementById("orientation-toggle");
+    event.preventDefault();
 
-    const themeToggle = document.getElementById("theme-toggle");
 
-    const helpButton = document.getElementById("help-button");
-    const helpPanel = document.getElementById("help-panel");
-    const helpCloseButton = document.getElementById("help-close-button");
+    const word =
+      input.value.trim();
 
-    // -----------------------------------------------------------------------
-    // Lookup form submission
-    // -----------------------------------------------------------------------
 
-    form.addEventListener("submit", async (event) => {
+    input.blur();
+
+
+    if (!word) {
+
+      showError("Input not found");
+
+      return;
+
+    }
+
+
+    try {
+
+
+      const response =
+        await fetch(
+          `/lookup?word=${encodeURIComponent(word)}`
+        );
+
+
+      const data =
+        await response.json();
+
+
+
+      if (!response.ok) {
+
+        showError(data.error);
+
+        return;
+
+      }
+
+
+
+      resultWord.textContent =
+        `Result for - ${capitalize(data.word)}`;
+
+
+      resultFrequency.textContent =
+        `${data.frequency_rating}/100 | ${data.frequency_commonness}`;
+
+
+      resultClassification.textContent =
+        data.classification;
+
+
+      resultIpa.textContent =
+        data.ipa || "Not found";
+
+
+      resultMajor.textContent =
+        data.major_system_value || "None";
+
+
+
+      if (data.svg_available) {
+
+
+        greggSvg.src =
+          data.svg_url;
+
+
+        svgBox.classList.remove("hidden");
+
+        emptyBuffer.classList.add("hidden");
+
+
+      }
+
+
+      results.classList.remove("hidden");
+
+
+    }
+
+    catch {
+
+      showError("Server unavailable");
+
+    }
+
+
+  }
+);
+
+
+
+
+/*
+  ==============================================================
+  CONTROLS
+  ==============================================================
+*/
+
+
+orientationToggle.addEventListener(
+  "change",
+  () => {
+
+    greggSvg.classList.toggle(
+      "normal-svg"
+    );
+
+  }
+);
+
+
+
+themeToggle.addEventListener(
+  "change",
+  () => {
+
+    document.body.classList.toggle(
+      "dark-mode"
+    );
+
+  }
+);
+
+
+
+helpButton.addEventListener(
+  "click",
+  () => {
+
+    helpPanel.classList.toggle("hidden");
+
+  }
+);
+
+
+
+helpCloseButton.addEventListener(
+  "click",
+  () => {
+
+    helpPanel.classList.add("hidden");
+
+  }
+);
+
+
+
+
+/*
+  ==============================================================
+  KEYBOARD CONTROLS
+  ==============================================================
+*/
+
+
+document.addEventListener(
+  "keydown",
+  (event) => {
+
+
+    if (event.key === "?") {
+
       event.preventDefault();
 
-      const word = input.value.trim();
-
-      // Close the entry box after Return/Enter submits the lookup.
-      input.blur();
-
-      // Clear old output before running a new lookup.
-      results.classList.add("hidden");
-      errorBox.classList.add("hidden");
-      svgBox.classList.add("hidden");
-
-      // Reset image orientation for each new lookup.
-      orientationToggle.checked = false;
-      greggSvg.classList.remove("normal-svg");
-
-      if (!word) {
-        showError("Input not found");
-        return;
-      }
-
-      try {
-        const response = await fetch(`/lookup?word=${encodeURIComponent(word)}`);
-        const data = await response.json();
-
-        if (!response.ok) {
-          showError(data.error || `${word} not found`);
-          return;
-        }
-
-        resultWord.textContent = `Result for - ${toDisplayTitle(data.word)}`;
-
-        resultFrequency.textContent =
-          `${data.frequency_rating}/100 | ${data.frequency_commonness}`;
-
-        resultClassification.textContent = data.classification;
-        resultIpa.textContent = data.ipa || "Not found";
-        resultMajor.textContent = data.major_system_value || "No consonant value";
-
-        if (data.svg_available && data.svg_url) {
-          greggSvg.src = data.svg_url;
-          svgBox.classList.remove("hidden");
-        }
-
-        results.classList.remove("hidden");
-
-      } catch (error) {
-        showError("Could not connect to the lookup server.");
-      }
-    });
-
-    // -----------------------------------------------------------------------
-    // SVG orientation toggle
-    // -----------------------------------------------------------------------
-
-    orientationToggle.addEventListener("change", () => {
-      /*
-        Raw SVG is considered MIRRORED.
-        Checked state applies NORMAL display through CSS.
-      */
-
-      if (orientationToggle.checked) {
-        greggSvg.classList.add("normal-svg");
-      } else {
-        greggSvg.classList.remove("normal-svg");
-      }
-    });
-
-    // -----------------------------------------------------------------------
-    // Theme toggle
-    // -----------------------------------------------------------------------
-
-    themeToggle.addEventListener("change", () => {
-      /*
-        DARK mode is applied by adding .dark-mode to the body.
-        The stylesheet handles the color palette and SVG inversion.
-      */
-
-      if (themeToggle.checked) {
-        document.body.classList.add("dark-mode");
-      } else {
-        document.body.classList.remove("dark-mode");
-      }
-    });
-
-    // -----------------------------------------------------------------------
-    // Help panel controls
-    // -----------------------------------------------------------------------
-
-    helpButton.addEventListener("click", () => {
-      toggleHelpPanel();
-    });
-
-    helpCloseButton.addEventListener("click", () => {
-      closeHelpPanel();
-    });
-
-    function toggleHelpPanel() {
       helpPanel.classList.toggle("hidden");
+
+      return;
+
     }
 
-    function closeHelpPanel() {
+
+    if (event.key === "Escape") {
+
       helpPanel.classList.add("hidden");
+
+      return;
+
     }
 
-    // -----------------------------------------------------------------------
-    // Keyboard shortcuts
-    // -----------------------------------------------------------------------
 
-    document.addEventListener("keydown", (event) => {
-      /*
-        Keyboard controls:
+    if (document.activeElement === input) {
 
-        /     Start a fresh search.
-        ?     Open or close help.
-        Esc   Close help.
+      return;
 
-        "/" is disabled while already typing in an input or textarea.
-      */
-
-      const activeElement = document.activeElement;
-
-      const isTyping =
-        activeElement.tagName === "INPUT" ||
-        activeElement.tagName === "TEXTAREA";
-
-      if (event.key === "Escape") {
-        closeHelpPanel();
-        return;
-      }
-
-      if (event.key === "?") {
-        event.preventDefault();
-        toggleHelpPanel();
-        return;
-      }
-
-      if (isTyping) {
-        return;
-      }
-
-      if (event.key === "/") {
-        event.preventDefault();
-        input.value = "";
-        input.focus();
-      }
-    });
-
-    // -----------------------------------------------------------------------
-    // Text display helper
-    // -----------------------------------------------------------------------
-
-    function toDisplayTitle(text) {
-      /*
-        Convert lookup display text into readable heading form.
-
-        Examples:
-          "i will"  -> "I will"
-          "aeolian" -> "Aeolian"
-      */
-
-      if (!text) {
-        return "";
-      }
-
-      return text.charAt(0).toUpperCase() + text.slice(1);
     }
 
-    // -----------------------------------------------------------------------
-    // Error display helper
-    // -----------------------------------------------------------------------
 
-    function showError(message) {
-      /*
-        Display a validation or connection error.
-      */
+    if (event.key === "/") {
 
-      errorBox.textContent = message;
-      errorBox.classList.remove("hidden");
+      event.preventDefault();
+
+      input.value = "";
+
+      input.focus();
+
     }
-  </script>
+
+
+  }
+);
+
+
+
+
+/*
+  ==============================================================
+  HELPERS
+  ==============================================================
+*/
+
+
+function capitalize(text) {
+
+  return (
+    text.charAt(0).toUpperCase()
+    +
+    text.slice(1)
+  );
+
+}
+
+
+
+function showError(message) {
+
+  errorBox.textContent =
+    message;
+
+
+  errorBox.classList.remove(
+    "hidden"
+  );
+
+}
+
+
+</script>
+
+
 </body>
+
 </html>
