@@ -1,40 +1,51 @@
 <!--
-  Gregg Shorthand Lookup Console
-  ==============================
+  Gregg Shorthand Lookup
+  ======================
 
-  Editor-inspired interface for Gregg shorthand lookup and study.
+  Editor-inspired web interface for looking up Gregg shorthand outlines.
 
-  Features:
-  - Word / phrase lookup
+  Core features:
+  - Word and phrase lookup
   - Gregg SVG display
   - Loading SVG while searching
-  - Not-found SVG when a valid lookup has no matching Gregg outline
-  - Browser tab favicon using the loading/search mascot SVG
-  - MIRRORED | NORMAL toggle
-  - LIGHT | DARK toggle
-  - / key starts fresh search
-  - Enter submits search
-  - m toggles mirrored / normal
-  - d toggles dark / light
-  - ? opens help
-  - Esc closes help
+  - Not-found SVG when a valid lookup has no matching outline
+  - Browser favicon
+  - MIRRORED | NORMAL image orientation toggle
+  - LIGHT | DARK theme toggle
+  - Persistent user preferences with localStorage
+  - Keyboard-driven workflow
+
+  Required static assets:
+  - /static/style.css
+  - /static/searching.svg
+  - /static/not_found.svg
+  - /static/favicon.svg
+
+  Important default behavior:
+  - First unsaved visit defaults to LIGHT mode.
+  - First unsaved visit defaults to MIRRORED mode.
+  - After the user changes either setting, the browser remembers it.
 -->
 
 <!doctype html>
 
 <html lang="en">
   <head>
-    <!-- Basic document metadata -->
+    <!-- ============================================================
+         DOCUMENT METADATA
+         ============================================================ -->
+
     <meta charset="utf-8" />
 
-    <title>Gregg Shorthand Form Lookup</title>
+    <!-- Keep the website name exact. -->
+    <title>Gregg Shorthand Lookup</title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- Browser tab icon -->
+    <!-- Browser tab icon. -->
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
 
-    <!-- Main stylesheet -->
+    <!-- Main stylesheet. -->
     <link rel="stylesheet" href="/static/style.css" />
   </head>
 
@@ -42,10 +53,16 @@
     <main class="editor-shell">
       <!-- ============================================================
            TOP BAR
-           ============================================================ -->
+           ============================================================
+
+           Contains:
+           - Website title
+           - Light/dark toggle
+           - Help button
+      -->
 
       <header class="editor-topbar">
-        <div class="app-title">Gregg Lookup</div>
+        <div class="app-title">Gregg Shorthand Lookup</div>
 
         <div class="top-controls">
           <span class="theme-label">LIGHT</span>
@@ -75,12 +92,42 @@
 
       <!-- ============================================================
            MAIN BUFFER
-           ============================================================ -->
+           ============================================================
+
+           The main visual field.
+
+           Possible states:
+           1. Empty:
+              "Press / to begin search"
+
+           2. Loading:
+              /static/searching.svg
+
+           3. Success:
+              matched Gregg SVG from /svg/<filename>
+
+           4. Not found:
+              /static/not_found.svg
+
+           The command/search bar is intentionally below this buffer but no
+           longer pressed against the bottom edge of the page.
+      -->
 
       <section class="editor-buffer">
         <div id="svg-box" class="svg-box hidden">
           <img id="gregg-svg" alt="Gregg shorthand SVG" />
 
+          <!--
+            Orientation control.
+
+            MIRRORED:
+              Raw SVG display. This is the default on a first unsaved visit.
+
+            NORMAL:
+              Horizontally flipped display using the .normal-svg CSS class.
+
+            The user preference is saved in localStorage after it is changed.
+          -->
           <div class="orientation-control">
             <span>MIRRORED</span>
 
@@ -98,6 +145,7 @@
           </div>
         </div>
 
+        <!-- Initial empty state. The not-found image is not shown on load. -->
         <div id="empty-buffer" class="empty-buffer">
           Press / to begin search
         </div>
@@ -105,7 +153,19 @@
 
       <!-- ============================================================
            COMMAND LINE
-           ============================================================ -->
+           ============================================================
+
+           Search interface.
+
+           Keyboard workflow:
+           - Press /
+           - Type word or phrase
+           - Press Enter
+
+           Layout note:
+           The CSS adds a large bottom buffer beneath this section so that
+           desktop docks, home bars, and browser UI do not cover the input.
+      -->
 
       <form id="lookup-form" class="command-line">
         <span class="prompt-symbol">/</span>
@@ -123,7 +183,10 @@
 
       <!-- ============================================================
            STATUS PANEL
-           ============================================================ -->
+           ============================================================
+
+           Displays metadata returned by the Flask backend.
+      -->
 
       <section id="results" class="status-panel hidden">
         <div class="status-title">
@@ -147,7 +210,7 @@
           </div>
 
           <div>
-            <strong>Major</strong>
+            <strong>Numerical Value in the Major System</strong>
             <span id="result-major"></span>
           </div>
         </div>
@@ -159,9 +222,63 @@
 
       <section id="error-box" class="error hidden"></section>
 
+<!-- ============================================================
+     BOTTOM FOOTER / ORNAMENT
+     ============================================================
+
+     This footer gives the bottom of the page a finished boundary.
+
+     It contains:
+     - A short description of the applet
+     - An open-source statement
+     - A GitHub repository link
+     - A decorative stretched SVG border
+
+     Accessibility note:
+     The footer itself is not hidden, because it contains readable text
+     and a real link. Only the decorative SVG is hidden from screen readers.
+-->
+
+<footer class="bottom-ornament">
+  <div class="footer-copy">
+    <p class="footer-description">
+      Gregg Shorthand Lookup is a small study applet for searching English
+      words and phrases, displaying available Gregg shorthand outlines, and
+      showing study metadata such as frequency, IPA, and the numerical value
+      in the Major System.
+    </p>
+
+    <p class="footer-open-source">
+      This project is open source.
+      <a
+        href="https://github.com/NPTprogrammer/gregg_word_lookup"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        View the source code on GitHub
+      </a>.
+    </p>
+  </div>
+
+  <img
+    src="/static/border.svg"
+    alt=""
+    aria-hidden="true"
+  />
+</footer>
       <!-- ============================================================
            HELP PANEL
-           ============================================================ -->
+           ============================================================
+
+           Opens with:
+           - ? button
+           - ? key
+
+           Closes with:
+           - Close button
+           - Esc key
+           - ? key again
+      -->
 
       <section
         id="help-panel"
@@ -209,18 +326,54 @@
 
           <h3>Examples</h3>
 
-          <pre>
-the
-jewel
-Aeolian
-i will
-this is</pre
-          >
+          <pre>the
+              jewel
+              Aeolian
+              i will
+              this is</pre>
+
+          <h3>Word Frequency Metric</h3>
+
+          <p>
+            The frequency score is derived from the Python
+            <code>wordfreq</code> package. The backend reads a Zipf frequency value
+            with <code>zipf_frequency(word, "en")</code>, then converts that value
+            into this app's custom <code>0–100</code> study rating.
+          </p>
+          
+          <p>
+            The displayed number is therefore not a strict dictionary rank or percentile.
+            It is a practical study-weighting score: higher values indicate words that
+            are more common in modern English usage.
+          </p>
         </div>
       </section>
     </main>
 
     <script>
+      /*
+        Gregg Shorthand Lookup Frontend
+        ===============================
+
+        Responsibilities:
+        1. Capture lookup form submission.
+        2. Call the Flask /lookup endpoint.
+        3. Display loading, success, not-found, or error states.
+        4. Render word metadata.
+        5. Handle MIRRORED | NORMAL image orientation.
+        6. Handle LIGHT | DARK theme.
+        7. Persist orientation and theme preferences in localStorage.
+        8. Provide editor-style keyboard shortcuts.
+
+        Default state:
+        - LIGHT mode
+        - MIRRORED orientation
+
+        Persistence:
+        - Once the user changes mode or orientation, that choice is saved.
+      */
+
+
       /*
         ==============================================================
         DOM REFERENCES
@@ -253,6 +406,120 @@ this is</pre
       const helpPanel = document.getElementById("help-panel");
       const helpCloseButton = document.getElementById("help-close-button");
 
+
+      /*
+        ==============================================================
+        LOCAL STORAGE SETTINGS
+        ==============================================================
+
+        Storage keys:
+        - greggOrientation: "mirrored" or "normal"
+        - greggTheme: "light" or "dark"
+
+        Important:
+        If there is no stored value yet, defaults are:
+        - mirrored
+        - light
+      */
+
+      const STORAGE_KEYS = {
+        orientation: "greggOrientation",
+        theme: "greggTheme",
+      };
+
+
+      function applySavedSettings() {
+        /*
+          Restore user preferences from localStorage.
+
+          Default orientation:
+            checkbox unchecked = MIRRORED
+
+          Default theme:
+            checkbox unchecked = LIGHT
+
+          Therefore, any unknown, missing, or old localStorage value falls
+          back to the intended default state.
+        */
+
+        const savedOrientation = localStorage.getItem(
+          STORAGE_KEYS.orientation
+        );
+
+        const savedTheme = localStorage.getItem(STORAGE_KEYS.theme);
+
+        if (savedOrientation === "normal") {
+          orientationToggle.checked = true;
+        } else {
+          orientationToggle.checked = false;
+        }
+
+        if (savedTheme === "dark") {
+          themeToggle.checked = true;
+          document.body.classList.add("dark-mode");
+        } else {
+          themeToggle.checked = false;
+          document.body.classList.remove("dark-mode");
+        }
+      }
+
+
+      function saveOrientationSetting() {
+        /*
+          Save the current orientation preference.
+        */
+
+        if (orientationToggle.checked) {
+          localStorage.setItem(STORAGE_KEYS.orientation, "normal");
+        } else {
+          localStorage.setItem(STORAGE_KEYS.orientation, "mirrored");
+        }
+      }
+
+
+      function saveThemeSetting() {
+        /*
+          Save the current theme preference.
+        */
+
+        if (themeToggle.checked) {
+          localStorage.setItem(STORAGE_KEYS.theme, "dark");
+        } else {
+          localStorage.setItem(STORAGE_KEYS.theme, "light");
+        }
+      }
+
+
+      function applyOrientationToCurrentImage() {
+        /*
+          Apply MIRRORED | NORMAL only to real Gregg lookup SVGs.
+
+          Loading and not-found drawings should not be flipped by the
+          orientation toggle.
+        */
+
+        if (
+          svgBox.classList.contains("loading") ||
+          svgBox.classList.contains("not-found")
+        ) {
+          greggSvg.classList.remove("normal-svg");
+          return;
+        }
+
+        greggSvg.classList.toggle(
+          "normal-svg",
+          orientationToggle.checked
+        );
+      }
+
+
+      /*
+        Apply saved settings immediately on page load.
+      */
+
+      applySavedSettings();
+
+
       /*
         ==============================================================
         LOOKUP ENGINE
@@ -263,6 +530,10 @@ this is</pre
         event.preventDefault();
 
         const word = input.value.trim();
+
+        /*
+          Blur after search so editor-style keys work immediately afterward.
+        */
 
         input.blur();
 
@@ -281,14 +552,15 @@ this is</pre
           const data = await response.json();
 
           if (!response.ok) {
-            hideLoadingSvg();
+            hideBufferToEmptyState();
             showError(data.error || "Lookup failed");
             return;
           }
 
           resultWord.textContent = `Result for - ${capitalize(data.word)}`;
 
-          resultFrequency.textContent = `${data.frequency_rating}/100 | ${data.frequency_commonness}`;
+          resultFrequency.textContent =
+            `${data.frequency_rating}/100 | ${data.frequency_commonness}`;
 
           resultClassification.textContent = data.classification;
           resultIpa.textContent = data.ipa || "Not found";
@@ -302,10 +574,11 @@ this is</pre
 
           results.classList.remove("hidden");
         } catch {
-          hideLoadingSvg();
+          hideBufferToEmptyState();
           showError("Server unavailable");
         }
       });
+
 
       /*
         ==============================================================
@@ -315,14 +588,12 @@ this is</pre
 
       function showLoadingSvg() {
         /*
-          Replace the main buffer with the searching SVG while the
-          request is running.
+          Show the searching illustration while the backend request is active.
         */
 
         greggSvg.src = "/static/searching.svg";
 
         greggSvg.classList.remove("normal-svg");
-        orientationToggle.checked = false;
 
         svgBox.classList.add("loading");
         svgBox.classList.remove("not-found");
@@ -336,9 +607,12 @@ this is</pre
         lookupButton.disabled = true;
       }
 
+
       function showGreggSvg(svgUrl) {
         /*
-          Display the matched Gregg SVG.
+          Display a matched Gregg SVG.
+
+          This is the only state where MIRRORED | NORMAL is applied.
         */
 
         greggSvg.src = svgUrl;
@@ -351,20 +625,20 @@ this is</pre
 
         lookupButton.textContent = "Lookup";
         lookupButton.disabled = false;
+
+        applyOrientationToCurrentImage();
       }
+
 
       function showNotFoundSvg() {
         /*
-          Display the not-found SVG when a valid lookup returns data
-          but has no matching Gregg outline.
-
-          This state is not shown on initial page visit.
+          Display the not-found illustration when the backend recognizes the
+          lookup but there is no matching SVG outline in the library.
         */
 
         greggSvg.src = "/static/not_found.svg";
 
         greggSvg.classList.remove("normal-svg");
-        orientationToggle.checked = false;
 
         svgBox.classList.remove("loading");
         svgBox.classList.add("not-found");
@@ -376,9 +650,10 @@ this is</pre
         lookupButton.disabled = false;
       }
 
-      function hideLoadingSvg() {
+
+      function hideBufferToEmptyState() {
         /*
-          Return the buffer to the empty state.
+          Return the buffer to its neutral empty state.
         */
 
         svgBox.classList.remove("loading");
@@ -391,13 +666,10 @@ this is</pre
         lookupButton.disabled = false;
       }
 
+
       function clearNotFoundOnSearchActivation() {
         /*
-          If the not-found image is showing, remove it when the user
-          activates the search box for a new attempt.
-
-          This prevents the not-found image from lingering while the user
-          begins another query.
+          Remove the not-found drawing when the user begins a new search.
         */
 
         if (svgBox.classList.contains("not-found")) {
@@ -408,31 +680,39 @@ this is</pre
         }
       }
 
+
       /*
         ==============================================================
-        CONTROLS
+        CONTROL LISTENERS
         ==============================================================
       */
 
       orientationToggle.addEventListener("change", () => {
-        greggSvg.classList.toggle("normal-svg", orientationToggle.checked);
+        saveOrientationSetting();
+        applyOrientationToCurrentImage();
       });
+
 
       themeToggle.addEventListener("change", () => {
         document.body.classList.toggle("dark-mode", themeToggle.checked);
+        saveThemeSetting();
       });
+
 
       helpButton.addEventListener("click", () => {
         helpPanel.classList.toggle("hidden");
       });
 
+
       helpCloseButton.addEventListener("click", () => {
         helpPanel.classList.add("hidden");
       });
 
+
       input.addEventListener("focus", () => {
         clearNotFoundOnSearchActivation();
       });
+
 
       /*
         ==============================================================
@@ -452,6 +732,10 @@ this is</pre
           return;
         }
 
+        /*
+          Do not trigger command keys while the user is typing.
+        */
+
         if (document.activeElement === input) {
           return;
         }
@@ -470,7 +754,9 @@ this is</pre
           event.preventDefault();
 
           orientationToggle.checked = !orientationToggle.checked;
-          greggSvg.classList.toggle("normal-svg", orientationToggle.checked);
+
+          saveOrientationSetting();
+          applyOrientationToCurrentImage();
 
           return;
         }
@@ -479,11 +765,14 @@ this is</pre
           event.preventDefault();
 
           themeToggle.checked = !themeToggle.checked;
+
           document.body.classList.toggle("dark-mode", themeToggle.checked);
+          saveThemeSetting();
 
           return;
         }
       });
+
 
       /*
         ==============================================================
@@ -499,11 +788,11 @@ this is</pre
         return text.charAt(0).toUpperCase() + text.slice(1);
       }
 
+
       function showError(message) {
         errorBox.textContent = message;
         errorBox.classList.remove("hidden");
       }
     </script>
   </body>
-</html>
 </html>
