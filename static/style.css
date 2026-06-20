@@ -9,6 +9,7 @@
   - Light and dark mode
   - Main layout
   - SVG display states
+  - Segment search grid
   - Search command line
   - Bottom ornament graphic
   - Status panel
@@ -179,7 +180,23 @@ body {
 .top-controls {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
+}
+
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  white-space: nowrap;
+}
+
+
+.control-divider {
+  color: var(--line);
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0.9;
 }
 
 
@@ -404,19 +421,91 @@ button:hover {
 
 
 /*
-  Orientation control below the SVG.
+  Segment search grid.
+
+  Segment mode can return many SVG files, so the result area is scrollable
+  inside the main buffer rather than stretching the whole page indefinitely.
 */
 
-.orientation-control {
-  margin-top: 1.25rem;
+.segment-box {
+  width: min(1120px, 100%);
+  height: 100%;
+  max-height: 100%;
+
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+
+.segment-summary {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+
+  padding: 0.75rem 0;
+  margin-bottom: 0.75rem;
+
+  background: var(--buffer);
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+
+.segment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 1rem;
+
+  padding-bottom: 1rem;
+}
+
+
+.segment-card {
+  margin: 0;
+  padding: 0.75rem;
 
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.6rem;
+
+  background: var(--panel);
+  border: var(--border-panel) solid var(--line);
+}
+
+
+.segment-card img {
+  width: 100%;
+  height: 105px;
+
+  object-fit: contain;
+}
+
+
+.segment-card figcaption {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+
+.segment-empty {
+  grid-column: 1 / -1;
+
+  padding: 1rem;
 
   color: var(--muted);
-  font-size: 0.8rem;
-  letter-spacing: 0.08em;
+  background: var(--panel);
+  border: var(--border-panel) solid var(--line);
+}
+
+
+.dark-mode .segment-card img {
+  filter: invert(1);
 }
 
 
@@ -746,6 +835,11 @@ button:hover {
 
   .top-controls {
     flex-wrap: wrap;
+    row-gap: 0.55rem;
+  }
+
+  .control-divider {
+    opacity: 0.65;
   }
 
   .status-grid {
@@ -809,6 +903,14 @@ button:hover {
 
   .svg-box img {
     max-height: 45vh;
+  }
+
+  .segment-grid {
+    grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+  }
+
+  .segment-card img {
+    height: 88px;
   }
 
   .bottom-ornament img {

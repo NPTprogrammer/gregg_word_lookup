@@ -12,6 +12,7 @@
   - Browser favicon
   - MIRRORED | NORMAL image orientation toggle
   - LIGHT | DARK theme toggle
+  - EXACT | SEGMENT search mode toggle
   - Persistent user preferences with localStorage
   - Keyboard-driven workflow
 
@@ -24,7 +25,8 @@
   Important default behavior:
   - First unsaved visit defaults to LIGHT mode.
   - First unsaved visit defaults to MIRRORED mode.
-  - After the user changes either setting, the browser remembers it.
+  - First unsaved visit defaults to EXACT lookup mode.
+  - After the user changes any setting, the browser remembers it.
 -->
 
 <!doctype html>
@@ -57,7 +59,9 @@
 
            Contains:
            - Website title
-           - Light/dark toggle
+           - LIGHT | DARK toggle
+           - MIRRORED | NORMAL toggle
+           - EXACT | SEGMENT toggle
            - Help button
       -->
 
@@ -65,19 +69,57 @@
         <div class="app-title">Gregg Shorthand Lookup</div>
 
         <div class="top-controls">
-          <span class="theme-label">LIGHT</span>
+          <div class="control-group">
+            <span class="theme-label">LIGHT</span>
 
-          <label class="toggle-switch">
-            <input
-              id="theme-toggle"
-              type="checkbox"
-              aria-label="Toggle dark mode"
-            />
+            <label class="toggle-switch">
+              <input
+                id="theme-toggle"
+                type="checkbox"
+                aria-label="Toggle dark mode"
+              />
 
-            <span class="toggle-slider"></span>
-          </label>
+              <span class="toggle-slider"></span>
+            </label>
 
-          <span class="theme-label">DARK</span>
+            <span class="theme-label">DARK</span>
+          </div>
+
+          <span class="control-divider" aria-hidden="true">|</span>
+
+          <div class="control-group">
+            <span class="theme-label">MIRRORED</span>
+
+            <label class="toggle-switch">
+              <input
+                id="orientation-toggle"
+                type="checkbox"
+                aria-label="Toggle mirrored and normal image orientation"
+              />
+
+              <span class="toggle-slider"></span>
+            </label>
+
+            <span class="theme-label">NORMAL</span>
+          </div>
+
+          <span class="control-divider" aria-hidden="true">|</span>
+
+          <div class="control-group">
+            <span class="theme-label">EXACT</span>
+
+            <label class="toggle-switch">
+              <input
+                id="segment-toggle"
+                type="checkbox"
+                aria-label="Toggle exact and segment search mode"
+              />
+
+              <span class="toggle-slider"></span>
+            </label>
+
+            <span class="theme-label">SEGMENT</span>
+          </div>
 
           <button
             id="help-button"
@@ -116,33 +158,18 @@
       <section class="editor-buffer">
         <div id="svg-box" class="svg-box hidden">
           <img id="gregg-svg" alt="Gregg shorthand SVG" />
+        </div>
 
-          <!--
-            Orientation control.
+        <!--
+          Segment search results.
 
-            MIRRORED:
-              Raw SVG display. This is the default on a first unsaved visit.
-
-            NORMAL:
-              Horizontally flipped display using the .normal-svg CSS class.
-
-            The user preference is saved in localStorage after it is changed.
-          -->
-          <div class="orientation-control">
-            <span>MIRRORED</span>
-
-            <label class="toggle-switch">
-              <input
-                id="orientation-toggle"
-                type="checkbox"
-                aria-label="Toggle mirrored and normal image orientation"
-              />
-
-              <span class="toggle-slider"></span>
-            </label>
-
-            <span>NORMAL</span>
-          </div>
+          When SEGMENT mode is active, the backend returns every SVG filename
+          whose normalized stem contains the normalized search text. These
+          results are displayed as a scrollable grid in the main buffer.
+        -->
+        <div id="segment-box" class="segment-box hidden" aria-live="polite">
+          <div id="segment-summary" class="segment-summary"></div>
+          <div id="segment-grid" class="segment-grid"></div>
         </div>
 
         <!-- Initial empty state. The not-found image is not shown on load. -->
@@ -314,6 +341,11 @@
             </tr>
 
             <tr>
+              <th>s</th>
+              <td>Toggle EXACT | SEGMENT search mode</td>
+            </tr>
+
+            <tr>
               <th>?</th>
               <td>Open or close help</td>
             </tr>
@@ -362,15 +394,18 @@
         4. Render word metadata.
         5. Handle MIRRORED | NORMAL image orientation.
         6. Handle LIGHT | DARK theme.
-        7. Persist orientation and theme preferences in localStorage.
-        8. Provide editor-style keyboard shortcuts.
+        7. Handle EXACT | SEGMENT lookup mode.
+        8. Persist orientation, theme, and segment preferences in localStorage.
+        9. Provide editor-style keyboard shortcuts.
 
         Default state:
         - LIGHT mode
         - MIRRORED orientation
+        - EXACT lookup mode
 
         Persistence:
-        - Once the user changes mode or orientation, that choice is saved.
+        - Once the user changes mode, orientation, or segment search, that
+          choice is saved.
       */
 
 
@@ -399,8 +434,13 @@
       const emptyBuffer = document.getElementById("empty-buffer");
       const greggSvg = document.getElementById("gregg-svg");
 
+      const segmentBox = document.getElementById("segment-box");
+      const segmentSummary = document.getElementById("segment-summary");
+      const segmentGrid = document.getElementById("segment-grid");
+
       const orientationToggle = document.getElementById("orientation-toggle");
       const themeToggle = document.getElementById("theme-toggle");
+      const segmentToggle = document.getElementById("segment-toggle");
 
       const helpButton = document.getElementById("help-button");
       const helpPanel = document.getElementById("help-panel");
@@ -415,16 +455,19 @@
         Storage keys:
         - greggOrientation: "mirrored" or "normal"
         - greggTheme: "light" or "dark"
+        - greggSegmentMode: "exact" or "segment"
 
         Important:
         If there is no stored value yet, defaults are:
         - mirrored
         - light
+        - exact
       */
 
       const STORAGE_KEYS = {
         orientation: "greggOrientation",
         theme: "greggTheme",
+        segmentMode: "greggSegmentMode",
       };
 
 
@@ -447,6 +490,9 @@
         );
 
         const savedTheme = localStorage.getItem(STORAGE_KEYS.theme);
+        const savedSegmentMode = localStorage.getItem(
+          STORAGE_KEYS.segmentMode
+        );
 
         if (savedOrientation === "normal") {
           orientationToggle.checked = true;
@@ -461,6 +507,14 @@
           themeToggle.checked = false;
           document.body.classList.remove("dark-mode");
         }
+
+        if (savedSegmentMode === "segment") {
+          segmentToggle.checked = true;
+        } else {
+          segmentToggle.checked = false;
+        }
+
+        updateSearchModePresentation();
       }
 
 
@@ -490,6 +544,48 @@
       }
 
 
+      function saveSegmentModeSetting() {
+        /*
+          Save the current exact/segment search preference.
+        */
+
+        if (segmentToggle.checked) {
+          localStorage.setItem(STORAGE_KEYS.segmentMode, "segment");
+        } else {
+          localStorage.setItem(STORAGE_KEYS.segmentMode, "exact");
+        }
+      }
+
+
+      function updateSearchModePresentation() {
+        /*
+          Keep the search field and button aligned with the active mode.
+        */
+
+        if (segmentToggle.checked) {
+          input.placeholder = "search segment inside SVG filenames";
+          lookupButton.textContent = "Search Segment";
+        } else {
+          input.placeholder = "search word or phrase";
+          lookupButton.textContent = "Lookup";
+        }
+      }
+
+
+      function applyOrientationToSegmentImages() {
+        /*
+          Segment results are real Gregg SVGs, so they obey the same
+          MIRRORED | NORMAL preference as a single exact lookup result.
+        */
+
+        const segmentImages = segmentGrid.querySelectorAll("img");
+
+        segmentImages.forEach((image) => {
+          image.classList.toggle("normal-svg", orientationToggle.checked);
+        });
+      }
+
+
       function applyOrientationToCurrentImage() {
         /*
           Apply MIRRORED | NORMAL only to real Gregg lookup SVGs.
@@ -510,6 +606,8 @@
           "normal-svg",
           orientationToggle.checked
         );
+
+        applyOrientationToSegmentImages();
       }
 
 
@@ -545,8 +643,10 @@
         showLoadingSvg();
 
         try {
+          const endpoint = segmentToggle.checked ? "/segment" : "/lookup";
+
           const response = await fetch(
-            `/lookup?word=${encodeURIComponent(word)}`
+            `${endpoint}?word=${encodeURIComponent(word)}`
           );
 
           const data = await response.json();
@@ -554,6 +654,11 @@
           if (!response.ok) {
             hideBufferToEmptyState();
             showError(data.error || "Lookup failed");
+            return;
+          }
+
+          if (segmentToggle.checked) {
+            showSegmentResults(data);
             return;
           }
 
@@ -580,6 +685,63 @@
       });
 
 
+      function showSegmentResults(data) {
+        /*
+          Display all SVGs that contain the requested segment in their
+          normalized filename stem.
+        */
+
+        const matchCount = data.match_count || 0;
+        const plural = matchCount === 1 ? "outline" : "outlines";
+
+        svgBox.classList.remove("loading");
+        svgBox.classList.remove("not-found");
+        svgBox.classList.add("hidden");
+
+        emptyBuffer.classList.add("hidden");
+        segmentBox.classList.add("hidden");
+        results.classList.add("hidden");
+        errorBox.classList.add("hidden");
+
+        segmentBox.classList.remove("hidden");
+        segmentGrid.innerHTML = "";
+
+        segmentSummary.textContent =
+          `Segment matches for - ${capitalize(data.segment)} ` +
+          `(${matchCount} ${plural})`;
+
+        if (matchCount === 0) {
+          const emptyMessage = document.createElement("div");
+          emptyMessage.className = "segment-empty";
+          emptyMessage.textContent =
+            "No SVG filename contains this search segment.";
+
+          segmentGrid.appendChild(emptyMessage);
+        } else {
+          data.matches.forEach((match) => {
+            const card = document.createElement("figure");
+            card.className = "segment-card";
+
+            const image = document.createElement("img");
+            image.src = match.svg_url;
+            image.alt = `${match.display} Gregg shorthand SVG`;
+            image.loading = "lazy";
+            image.classList.toggle("normal-svg", orientationToggle.checked);
+
+            const caption = document.createElement("figcaption");
+            caption.textContent = match.display;
+
+            card.appendChild(image);
+            card.appendChild(caption);
+            segmentGrid.appendChild(card);
+          });
+        }
+
+        lookupButton.disabled = false;
+        updateSearchModePresentation();
+      }
+
+
       /*
         ==============================================================
         BUFFER STATES
@@ -600,6 +762,7 @@
         svgBox.classList.remove("hidden");
 
         emptyBuffer.classList.add("hidden");
+        segmentBox.classList.add("hidden");
         results.classList.add("hidden");
         errorBox.classList.add("hidden");
 
@@ -622,9 +785,10 @@
         svgBox.classList.remove("hidden");
 
         emptyBuffer.classList.add("hidden");
+        segmentBox.classList.add("hidden");
 
-        lookupButton.textContent = "Lookup";
         lookupButton.disabled = false;
+        updateSearchModePresentation();
 
         applyOrientationToCurrentImage();
       }
@@ -645,9 +809,10 @@
         svgBox.classList.remove("hidden");
 
         emptyBuffer.classList.add("hidden");
+        segmentBox.classList.add("hidden");
 
-        lookupButton.textContent = "Lookup";
         lookupButton.disabled = false;
+        updateSearchModePresentation();
       }
 
 
@@ -659,11 +824,12 @@
         svgBox.classList.remove("loading");
         svgBox.classList.remove("not-found");
         svgBox.classList.add("hidden");
+        segmentBox.classList.add("hidden");
 
         emptyBuffer.classList.remove("hidden");
 
-        lookupButton.textContent = "Lookup";
         lookupButton.disabled = false;
+        updateSearchModePresentation();
       }
 
 
@@ -696,6 +862,12 @@
       themeToggle.addEventListener("change", () => {
         document.body.classList.toggle("dark-mode", themeToggle.checked);
         saveThemeSetting();
+      });
+
+
+      segmentToggle.addEventListener("change", () => {
+        saveSegmentModeSetting();
+        updateSearchModePresentation();
       });
 
 
@@ -768,6 +940,17 @@
 
           document.body.classList.toggle("dark-mode", themeToggle.checked);
           saveThemeSetting();
+
+          return;
+        }
+
+        if (event.key.toLowerCase() === "s") {
+          event.preventDefault();
+
+          segmentToggle.checked = !segmentToggle.checked;
+
+          saveSegmentModeSetting();
+          updateSearchModePresentation();
 
           return;
         }

@@ -5,7 +5,8 @@ Shorthand Word Lookup Web App
 Local Flask web app for studying English word frequency, IPA pronunciation,
 grammatical classification, Major system values, and Gregg shorthand SVGs.
 
-Supports both single-word and phrase lookup.
+Supports single-word lookup, phrase lookup, and persistent segment-mode
+SVG filename matching.
 
 Examples:
     jewel      -> media/gregg/jewel.svg
@@ -14,7 +15,7 @@ Examples:
 """
 
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 import re
 import unicodedata
 
@@ -445,6 +446,76 @@ def find_svg_filename(word_or_phrase_key: str) -> Optional[str]:
 
     return None
 
+def svg_stem_to_display_text(stem: str) -> str:
+    """
+    Convert an SVG filename stem into readable display text.
+
+    Examples:
+        this_is -> this is
+        as_it_is -> as it is
+    """
+
+    return stem.replace("_", " ")
+
+
+def find_segment_svg_matches(segment_key: str) -> List[Dict[str, str]]:
+    """
+    Return every Gregg SVG whose filename stem contains segment_key.
+
+    Segment mode uses the same normalization as ordinary lookup:
+    - Spaces become underscores.
+    - Case is ignored.
+    - The search is a substring search against the SVG filename stem.
+
+    Examples:
+        the     -> the.svg, there.svg, other.svg, as_the.svg, etc.
+        this is -> this_is.svg, as_this_is.svg, etc.
+    """
+
+    if not segment_key:
+        return []
+
+    segment_lower = segment_key.lower()
+    matches = []
+
+    for svg_file in SVG_DIR.glob("*.svg"):
+        if svg_file.suffix.lower() != ".svg":
+            continue
+
+        stem_lower = svg_file.stem.lower()
+
+        if segment_lower not in stem_lower:
+            continue
+
+        display_text = svg_stem_to_display_text(svg_file.stem)
+
+        matches.append({
+            "filename": svg_file.name,
+            "display": display_text,
+            "svg_url": f"/svg/{svg_file.name}",
+        })
+
+    def sort_key(item: Dict[str, str]) -> Tuple[int, int, int, str]:
+        """
+        Sort exact matches first, prefix matches second, then everything else.
+        Within each group, shorter and alphabetic entries appear first.
+        """
+
+        stem = Path(item["filename"]).stem.lower()
+
+        if stem == segment_lower:
+            group = 0
+        elif stem.startswith(segment_lower):
+            group = 1
+        else:
+            group = 2
+
+        return (group, len(stem), stem.count("_"), stem)
+
+    return sorted(matches, key=sort_key)
+
+
+
 # ---------------------------------------------------------------------------
 # Web routes
 # ---------------------------------------------------------------------------
@@ -461,7 +532,7 @@ def index():
 @app.route("/lookup")
 def lookup():
     """
-    API endpoint for word or phrase lookup.
+    API endpoint for exact word or phrase lookup.
     """
 
     raw_word = request.args.get("word", "")
@@ -496,6 +567,37 @@ def lookup():
     }
 
     return jsonify(result)
+
+
+@app.route("/segment")
+def segment_lookup():
+    """
+    API endpoint for segment-mode SVG lookup.
+
+    Segment mode returns every SVG file whose filename stem contains the
+    normalized search text. It does not try to classify grammar or IPA,
+    because the result set may include many unrelated entries.
+    """
+
+    raw_word = request.args.get("word", "")
+    display_text = raw_word.strip()
+
+    if not is_acceptable_word(raw_word):
+        if display_text:
+            return jsonify({"error": f"{display_text} not found"}), 404
+
+        return jsonify({"error": "Input not found"}), 404
+
+    segment_key = normalize_word(raw_word)
+    segment_text = normalize_display_text(raw_word)
+    matches = find_segment_svg_matches(segment_key)
+
+    return jsonify({
+        "segment": segment_text,
+        "segment_key": segment_key,
+        "match_count": len(matches),
+        "matches": matches,
+    })
 
 
 @app.route("/svg/<path:filename>")
