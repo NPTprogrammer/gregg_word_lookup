@@ -10,7 +10,7 @@
   - Main layout
   - SVG display states
   - Segment search grid
-  - Search command line
+  - Search command line and editor-style Insert/Normal mode
   - Bottom ornament graphic
   - Status panel
   - Help panel
@@ -509,6 +509,33 @@ button:hover {
 }
 
 
+
+
+/* ---------------------------------------------------------------------------
+   Live suggestion interaction
+
+   Live suggestions are outline-only. Metadata remains hidden until a final
+   exact lookup is submitted with Enter.
+--------------------------------------------------------------------------- */
+
+.segment-box.live-suggestions .segment-summary {
+  color: var(--accent-secondary);
+}
+
+.suggestion-card {
+  cursor: pointer;
+}
+
+.suggestion-card:hover,
+.suggestion-card:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.suggestion-card:focus {
+  border-color: var(--accent);
+}
+
 /* ---------------------------------------------------------------------------
    Command line
 --------------------------------------------------------------------------- */
@@ -535,7 +562,8 @@ button:hover {
 .prompt-symbol {
   font-weight: 700;
   color: var(--accent-secondary);
-  font-size: 1.25rem;
+  font-size: 1.05rem;
+  white-space: nowrap;
 }
 
 
@@ -556,6 +584,16 @@ button:hover {
 .command-line input:focus {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+
+/*
+  Insert Mode visual cue. The state is set by JavaScript when the input has
+  focus. Esc clears this state and returns the page to Normal Mode.
+*/
+
+body.insert-mode .command-line {
+  border-color: var(--accent);
 }
 
 

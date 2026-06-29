@@ -5,8 +5,8 @@ Shorthand Word Lookup Web App
 Local Flask web app for studying English word frequency, IPA pronunciation,
 grammatical classification, Major system values, and Gregg shorthand SVGs.
 
-Supports single-word lookup, phrase lookup, and persistent segment-mode
-SVG filename matching.
+Supports single-word lookup, phrase lookup, segment-mode SVG filename
+matching, and outline-only live suggestions while the user types.
 
 Examples:
     jewel      -> media/gregg/jewel.svg
@@ -515,6 +515,86 @@ def find_segment_svg_matches(segment_key: str) -> List[Dict[str, str]]:
     return sorted(matches, key=sort_key)
 
 
+def is_acceptable_live_query(raw_text: str) -> bool:
+    """
+    Validate partial text for live SVG suggestions.
+
+    This is intentionally more permissive than final lookup validation because
+    the user may be midway through typing a word or phrase. Final lookup still
+    uses is_acceptable_word().
+    """
+
+    cleaned = raw_text.strip().lower()
+
+    if not cleaned:
+        return False
+
+    return re.fullmatch(r"[a-z'\-\s]+", cleaned) is not None
+
+
+def find_live_svg_suggestions(
+    search_key: str,
+    mode: str = "exact",
+    limit: int = 24,
+) -> List[Dict[str, str]]:
+    """
+    Return a small outline-only suggestion list for live typing.
+
+    Modes:
+    - exact: exact and prefix filename-stem matches only.
+    - segment: substring matches anywhere in the filename stem.
+
+    This function deliberately returns only SVG/display fields. It does not
+    compute frequency, grammar, IPA, or Major system values.
+    """
+
+    if not search_key:
+        return []
+
+    search_lower = search_key.lower()
+    mode = "segment" if mode == "segment" else "exact"
+    matches = []
+
+    for svg_file in SVG_DIR.glob("*.svg"):
+        if svg_file.suffix.lower() != ".svg":
+            continue
+
+        stem_lower = svg_file.stem.lower()
+
+        if mode == "segment":
+            is_match = search_lower in stem_lower
+        else:
+            is_match = (
+                stem_lower == search_lower
+                or stem_lower.startswith(search_lower)
+            )
+
+        if not is_match:
+            continue
+
+        display_text = svg_stem_to_display_text(svg_file.stem)
+
+        matches.append({
+            "filename": svg_file.name,
+            "display": display_text,
+            "svg_url": f"/svg/{svg_file.name}",
+        })
+
+    def sort_key(item: Dict[str, str]) -> Tuple[int, int, int, str]:
+        stem = Path(item["filename"]).stem.lower()
+
+        if stem == search_lower:
+            group = 0
+        elif stem.startswith(search_lower):
+            group = 1
+        else:
+            group = 2
+
+        return (group, len(stem), stem.count("_"), stem)
+
+    return sorted(matches, key=sort_key)[:limit]
+
+
 
 # ---------------------------------------------------------------------------
 # Web routes
@@ -595,6 +675,57 @@ def segment_lookup():
     return jsonify({
         "segment": segment_text,
         "segment_key": segment_key,
+        "raw_query": raw_word.strip(),
+        "match_count": len(matches),
+        "matches": matches,
+    })
+
+
+@app.route("/suggest")
+def suggest_lookup():
+    """
+    API endpoint for live outline suggestions while the user types.
+
+    This endpoint is intentionally outline-only. It preserves the raw user
+    query for display text, but it does not return frequency, grammar, IPA, or
+    Major system values. Those fields are reserved for the final /lookup
+    request after the user presses Enter.
+    """
+
+    raw_word = request.args.get("word", "")
+    requested_mode = request.args.get("mode", "exact").lower()
+    suggestion_mode = "segment" if requested_mode == "segment" else "exact"
+
+    try:
+        limit = int(request.args.get("limit", 24))
+    except ValueError:
+        limit = 24
+
+    limit = max(1, min(limit, 60))
+
+    if not is_acceptable_live_query(raw_word):
+        return jsonify({
+            "query": normalize_display_text(raw_word),
+            "query_key": normalize_word(raw_word),
+            "raw_query": raw_word.strip(),
+            "mode": suggestion_mode,
+            "match_count": 0,
+            "matches": [],
+        })
+
+    query_key = normalize_word(raw_word)
+    query_text = normalize_display_text(raw_word)
+    matches = find_live_svg_suggestions(
+        query_key,
+        mode=suggestion_mode,
+        limit=limit,
+    )
+
+    return jsonify({
+        "query": query_text,
+        "query_key": query_key,
+        "raw_query": raw_word.strip(),
+        "mode": suggestion_mode,
         "match_count": len(matches),
         "matches": matches,
     })

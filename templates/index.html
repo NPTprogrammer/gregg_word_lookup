@@ -14,7 +14,7 @@
   - LIGHT | DARK theme toggle
   - EXACT | SEGMENT search mode toggle
   - Persistent user preferences with localStorage
-  - Keyboard-driven workflow
+  - Keyboard-driven workflow with Insert Mode and Normal Mode
 
   Required static assets:
   - /static/style.css
@@ -142,13 +142,16 @@
            1. Empty:
               "Press / to begin search"
 
-           2. Loading:
-              /static/searching.svg
+           2. Live suggestions:
+              outline-only SVG cards fetched from /suggest while typing
 
-           3. Success:
+           3. Loading:
+              /static/searching.svg during a final Enter lookup
+
+           4. Success:
               matched Gregg SVG from /svg/<filename>
 
-           4. Not found:
+           5. Not found:
               /static/not_found.svg
 
            The command/search bar is intentionally below this buffer but no
@@ -185,9 +188,10 @@
            Search interface.
 
            Keyboard workflow:
-           - Press /
-           - Type word or phrase
-           - Press Enter
+           - Press / to enter Insert Mode and begin a fresh search.
+           - Type a word, phrase, or segment to preview outline cards.
+           - Press Enter to run the final lookup/search.
+           - Press Esc to leave Insert Mode and return to Normal Mode.
 
            Layout note:
            The CSS adds a large bottom buffer beneath this section so that
@@ -195,13 +199,13 @@
       -->
 
       <form id="lookup-form" class="command-line">
-        <span class="prompt-symbol">/</span>
+        <span class="prompt-symbol">Search here:</span>
 
         <input
           id="word-input"
           name="word"
           type="text"
-          placeholder="search word or phrase"
+          placeholder="word, phrase, or segment"
           autocomplete="off"
         />
 
@@ -322,12 +326,12 @@
           <table>
             <tr>
               <th>/</th>
-              <td>Start a fresh search</td>
+              <td>Enter Insert Mode and start a fresh search</td>
             </tr>
 
             <tr>
               <th>Enter</th>
-              <td>Run lookup and close the search box</td>
+              <td>Run the final lookup/search and return to Normal Mode</td>
             </tr>
 
             <tr>
@@ -352,7 +356,7 @@
 
             <tr>
               <th>Esc</th>
-              <td>Close help</td>
+              <td>Leave Insert Mode, return to Normal Mode, and close help</td>
             </tr>
           </table>
 
@@ -387,25 +391,13 @@
         Gregg Shorthand Lookup Frontend
         ===============================
 
-        Responsibilities:
-        1. Capture lookup form submission.
-        2. Call the Flask /lookup endpoint.
-        3. Display loading, success, not-found, or error states.
-        4. Render word metadata.
-        5. Handle MIRRORED | NORMAL image orientation.
-        6. Handle LIGHT | DARK theme.
-        7. Handle EXACT | SEGMENT lookup mode.
-        8. Persist orientation, theme, and segment preferences in localStorage.
-        9. Provide editor-style keyboard shortcuts.
-
-        Default state:
-        - LIGHT mode
-        - MIRRORED orientation
-        - EXACT lookup mode
-
-        Persistence:
-        - Once the user changes mode, orientation, or segment search, that
-          choice is saved.
+        Workflow:
+        1. Press / to enter Insert Mode and focus the search field.
+        2. While the user types, fetch /suggest and display outline-only cards.
+        3. Do not display frequency, grammar, IPA, or Major values during typing.
+        4. Press Enter to run the final lookup/search and return to Normal Mode.
+        5. Press Esc to leave Insert Mode without clearing the current query.
+        6. Show the metadata panel only after the final exact lookup.
       */
 
 
@@ -451,17 +443,6 @@
         ==============================================================
         LOCAL STORAGE SETTINGS
         ==============================================================
-
-        Storage keys:
-        - greggOrientation: "mirrored" or "normal"
-        - greggTheme: "light" or "dark"
-        - greggSegmentMode: "exact" or "segment"
-
-        Important:
-        If there is no stored value yet, defaults are:
-        - mirrored
-        - light
-        - exact
       */
 
       const STORAGE_KEYS = {
@@ -470,21 +451,19 @@
         segmentMode: "greggSegmentMode",
       };
 
+      const LIVE_SUGGESTION_DELAY_MS = 160;
+      const LIVE_SUGGESTION_LIMIT = 24;
+
+      let liveSuggestionTimer = null;
+      let liveSuggestionController = null;
+      let lastLiveSuggestionQuery = "";
+
+      // Normal Mode = page-level keyboard commands are active.
+      // Insert Mode = the search field owns ordinary typing.
+      let editorMode = "normal";
+
 
       function applySavedSettings() {
-        /*
-          Restore user preferences from localStorage.
-
-          Default orientation:
-            checkbox unchecked = MIRRORED
-
-          Default theme:
-            checkbox unchecked = LIGHT
-
-          Therefore, any unknown, missing, or old localStorage value falls
-          back to the intended default state.
-        */
-
         const savedOrientation = localStorage.getItem(
           STORAGE_KEYS.orientation
         );
@@ -494,11 +473,7 @@
           STORAGE_KEYS.segmentMode
         );
 
-        if (savedOrientation === "normal") {
-          orientationToggle.checked = true;
-        } else {
-          orientationToggle.checked = false;
-        }
+        orientationToggle.checked = savedOrientation === "normal";
 
         if (savedTheme === "dark") {
           themeToggle.checked = true;
@@ -508,76 +483,84 @@
           document.body.classList.remove("dark-mode");
         }
 
-        if (savedSegmentMode === "segment") {
-          segmentToggle.checked = true;
-        } else {
-          segmentToggle.checked = false;
-        }
+        segmentToggle.checked = savedSegmentMode === "segment";
 
         updateSearchModePresentation();
       }
 
 
       function saveOrientationSetting() {
-        /*
-          Save the current orientation preference.
-        */
-
-        if (orientationToggle.checked) {
-          localStorage.setItem(STORAGE_KEYS.orientation, "normal");
-        } else {
-          localStorage.setItem(STORAGE_KEYS.orientation, "mirrored");
-        }
+        localStorage.setItem(
+          STORAGE_KEYS.orientation,
+          orientationToggle.checked ? "normal" : "mirrored"
+        );
       }
 
 
       function saveThemeSetting() {
-        /*
-          Save the current theme preference.
-        */
-
-        if (themeToggle.checked) {
-          localStorage.setItem(STORAGE_KEYS.theme, "dark");
-        } else {
-          localStorage.setItem(STORAGE_KEYS.theme, "light");
-        }
+        localStorage.setItem(
+          STORAGE_KEYS.theme,
+          themeToggle.checked ? "dark" : "light"
+        );
       }
 
 
       function saveSegmentModeSetting() {
-        /*
-          Save the current exact/segment search preference.
-        */
-
-        if (segmentToggle.checked) {
-          localStorage.setItem(STORAGE_KEYS.segmentMode, "segment");
-        } else {
-          localStorage.setItem(STORAGE_KEYS.segmentMode, "exact");
-        }
+        localStorage.setItem(
+          STORAGE_KEYS.segmentMode,
+          segmentToggle.checked ? "segment" : "exact"
+        );
       }
 
 
       function updateSearchModePresentation() {
         /*
-          Keep the search field and button aligned with the active mode.
+          Keep mode-specific controls minimal. The fixed prompt text remains
+          "Search here:"; the button alone reflects the active search mode.
         */
 
-        if (segmentToggle.checked) {
-          input.placeholder = "search segment inside SVG filenames";
-          lookupButton.textContent = "Search Segment";
-        } else {
-          input.placeholder = "search word or phrase";
-          lookupButton.textContent = "Lookup";
+        input.placeholder = "word, phrase, or segment";
+        lookupButton.textContent = segmentToggle.checked
+          ? "Search Segment"
+          : "Lookup";
+      }
+
+
+      function setEditorMode(mode) {
+        /*
+          Track the editor-style state explicitly. This lets Esc behave like
+          Vim: leave Insert Mode, blur the input, and restore Normal Mode
+          keyboard shortcuts without erasing the current search text.
+        */
+
+        editorMode = mode === "insert" ? "insert" : "normal";
+        document.body.classList.toggle("insert-mode", editorMode === "insert");
+      }
+
+
+      function enterInsertMode({ clearInput = false } = {}) {
+        if (clearInput) {
+          input.value = "";
+          cancelLiveSuggestionRequest();
+          hideBufferToEmptyState();
+          results.classList.add("hidden");
+          errorBox.classList.add("hidden");
         }
+
+        setEditorMode("insert");
+        clearNotFoundOnSearchActivation();
+        input.focus();
+      }
+
+
+      function enterNormalMode() {
+        cancelLiveSuggestionRequest();
+        setEditorMode("normal");
+        input.blur();
       }
 
 
       function applyOrientationToSegmentImages() {
-        /*
-          Segment results are real Gregg SVGs, so they obey the same
-          MIRRORED | NORMAL preference as a single exact lookup result.
-        */
-
         const segmentImages = segmentGrid.querySelectorAll("img");
 
         segmentImages.forEach((image) => {
@@ -587,13 +570,6 @@
 
 
       function applyOrientationToCurrentImage() {
-        /*
-          Apply MIRRORED | NORMAL only to real Gregg lookup SVGs.
-
-          Loading and not-found drawings should not be flipped by the
-          orientation toggle.
-        */
-
         if (
           svgBox.classList.contains("loading") ||
           svgBox.classList.contains("not-found")
@@ -611,16 +587,12 @@
       }
 
 
-      /*
-        Apply saved settings immediately on page load.
-      */
-
       applySavedSettings();
 
 
       /*
         ==============================================================
-        LOOKUP ENGINE
+        FINAL LOOKUP / SEARCH ENGINE
         ==============================================================
       */
 
@@ -629,24 +601,27 @@
 
         const word = input.value.trim();
 
-        /*
-          Blur after search so editor-style keys work immediately afterward.
-        */
-
-        input.blur();
+        enterNormalMode();
 
         if (!word) {
           showError("Input not found");
           return;
         }
 
+        if (segmentToggle.checked) {
+          await runFinalSegmentSearch(word);
+        } else {
+          await runFinalExactLookup(word);
+        }
+      });
+
+
+      async function runFinalExactLookup(word) {
         showLoadingSvg();
 
         try {
-          const endpoint = segmentToggle.checked ? "/segment" : "/lookup";
-
           const response = await fetch(
-            `${endpoint}?word=${encodeURIComponent(word)}`
+            `/lookup?word=${encodeURIComponent(word)}`
           );
 
           const data = await response.json();
@@ -654,11 +629,6 @@
           if (!response.ok) {
             hideBufferToEmptyState();
             showError(data.error || "Lookup failed");
-            return;
-          }
-
-          if (segmentToggle.checked) {
-            showSegmentResults(data);
             return;
           }
 
@@ -682,59 +652,225 @@
           hideBufferToEmptyState();
           showError("Server unavailable");
         }
+      }
+
+
+      async function runFinalSegmentSearch(word) {
+        showLoadingSvg();
+
+        try {
+          const response = await fetch(
+            `/segment?word=${encodeURIComponent(word)}`
+          );
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            hideBufferToEmptyState();
+            showError(data.error || "Segment search failed");
+            return;
+          }
+
+          showSegmentResults(data);
+        } catch {
+          hideBufferToEmptyState();
+          showError("Server unavailable");
+        }
+      }
+
+
+      /*
+        ==============================================================
+        LIVE OUTLINE SUGGESTIONS
+        ==============================================================
+      */
+
+      input.addEventListener("input", () => {
+        clearNotFoundOnSearchActivation();
+        results.classList.add("hidden");
+        errorBox.classList.add("hidden");
+
+        const word = input.value.trim();
+
+        if (!word) {
+          cancelLiveSuggestionRequest();
+          hideBufferToEmptyState();
+          return;
+        }
+
+        scheduleLiveSuggestions(word);
       });
 
 
-      function showSegmentResults(data) {
-        /*
-          Display all SVGs that contain the requested segment in their
-          normalized filename stem.
-        */
+      function scheduleLiveSuggestions(word) {
+        clearTimeout(liveSuggestionTimer);
 
+        liveSuggestionTimer = setTimeout(() => {
+          fetchLiveSuggestions(word);
+        }, LIVE_SUGGESTION_DELAY_MS);
+      }
+
+
+      async function fetchLiveSuggestions(word) {
+        cancelLiveSuggestionRequest(false);
+
+        const mode = segmentToggle.checked ? "segment" : "exact";
+        const queryKey = `${mode}:${word}`;
+        lastLiveSuggestionQuery = queryKey;
+
+        liveSuggestionController = new AbortController();
+
+        try {
+          const response = await fetch(
+            `/suggest?word=${encodeURIComponent(word)}` +
+              `&mode=${encodeURIComponent(mode)}` +
+              `&limit=${LIVE_SUGGESTION_LIMIT}`,
+            { signal: liveSuggestionController.signal }
+          );
+
+          const data = await response.json();
+
+          if (lastLiveSuggestionQuery !== queryKey) {
+            return;
+          }
+
+          if (!response.ok) {
+            return;
+          }
+
+          showLiveSuggestions(data);
+        } catch (error) {
+          if (error.name !== "AbortError") {
+            showError("Suggestion search unavailable");
+          }
+        }
+      }
+
+
+      function cancelLiveSuggestionRequest(clearTimer = true) {
+        if (clearTimer) {
+          clearTimeout(liveSuggestionTimer);
+        }
+
+        if (liveSuggestionController) {
+          liveSuggestionController.abort();
+          liveSuggestionController = null;
+        }
+      }
+
+
+      function showLiveSuggestions(data) {
         const matchCount = data.match_count || 0;
-        const plural = matchCount === 1 ? "outline" : "outlines";
+        const displayQuery = data.raw_query || input.value.trim();
 
         svgBox.classList.remove("loading");
         svgBox.classList.remove("not-found");
         svgBox.classList.add("hidden");
 
         emptyBuffer.classList.add("hidden");
-        segmentBox.classList.add("hidden");
         results.classList.add("hidden");
         errorBox.classList.add("hidden");
 
         segmentBox.classList.remove("hidden");
+        segmentBox.classList.add("live-suggestions");
         segmentGrid.innerHTML = "";
 
-        segmentSummary.textContent =
-          `Segment matches for - ${capitalize(data.segment)} ` +
-          `(${matchCount} ${plural})`;
+        segmentSummary.textContent = `Outlines containing: ${displayQuery}`;
+
+        if (matchCount === 0) {
+          const emptyMessage = document.createElement("div");
+          emptyMessage.className = "segment-empty";
+          emptyMessage.textContent = "No outlines contain this search text.";
+          segmentGrid.appendChild(emptyMessage);
+          return;
+        }
+
+        renderOutlineCards(data.matches, { interactive: true });
+      }
+
+
+      function renderOutlineCards(matches, options = {}) {
+        const interactive = options.interactive === true;
+
+        matches.forEach((match) => {
+          const card = document.createElement("figure");
+          card.className = "segment-card";
+
+          if (interactive) {
+            card.classList.add("suggestion-card");
+            card.tabIndex = 0;
+            card.setAttribute(
+              "aria-label",
+              `Use ${match.display} as the search text`
+            );
+          }
+
+          const image = document.createElement("img");
+          image.src = match.svg_url;
+          image.alt = `${match.display} Gregg shorthand SVG`;
+          image.loading = "lazy";
+          image.classList.toggle("normal-svg", orientationToggle.checked);
+
+          const caption = document.createElement("figcaption");
+          caption.textContent = match.display;
+
+          card.appendChild(image);
+          card.appendChild(caption);
+
+          if (interactive) {
+            card.addEventListener("click", () => {
+              acceptSuggestion(match.display);
+            });
+
+            card.addEventListener("keydown", (event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                acceptSuggestion(match.display);
+              }
+            });
+          }
+
+          segmentGrid.appendChild(card);
+        });
+      }
+
+
+      function acceptSuggestion(displayText) {
+        input.value = displayText;
+        input.focus();
+        results.classList.add("hidden");
+        errorBox.classList.add("hidden");
+        scheduleLiveSuggestions(displayText);
+      }
+
+
+      function showSegmentResults(data) {
+        const matchCount = data.match_count || 0;
+        const displayQuery = data.raw_query || input.value.trim() || data.segment;
+
+        svgBox.classList.remove("loading");
+        svgBox.classList.remove("not-found");
+        svgBox.classList.add("hidden");
+
+        emptyBuffer.classList.add("hidden");
+        results.classList.add("hidden");
+        errorBox.classList.add("hidden");
+
+        segmentBox.classList.remove("hidden");
+        segmentBox.classList.remove("live-suggestions");
+        segmentGrid.innerHTML = "";
+
+        segmentSummary.textContent = `Outlines containing: ${displayQuery}`;
 
         if (matchCount === 0) {
           const emptyMessage = document.createElement("div");
           emptyMessage.className = "segment-empty";
           emptyMessage.textContent =
-            "No SVG filename contains this search segment.";
+            "No outlines contain this search text.";
 
           segmentGrid.appendChild(emptyMessage);
         } else {
-          data.matches.forEach((match) => {
-            const card = document.createElement("figure");
-            card.className = "segment-card";
-
-            const image = document.createElement("img");
-            image.src = match.svg_url;
-            image.alt = `${match.display} Gregg shorthand SVG`;
-            image.loading = "lazy";
-            image.classList.toggle("normal-svg", orientationToggle.checked);
-
-            const caption = document.createElement("figcaption");
-            caption.textContent = match.display;
-
-            card.appendChild(image);
-            card.appendChild(caption);
-            segmentGrid.appendChild(card);
-          });
+          renderOutlineCards(data.matches, { interactive: false });
         }
 
         lookupButton.disabled = false;
@@ -749,12 +885,7 @@
       */
 
       function showLoadingSvg() {
-        /*
-          Show the searching illustration while the backend request is active.
-        */
-
         greggSvg.src = "/static/searching.svg";
-
         greggSvg.classList.remove("normal-svg");
 
         svgBox.classList.add("loading");
@@ -763,6 +894,7 @@
 
         emptyBuffer.classList.add("hidden");
         segmentBox.classList.add("hidden");
+        segmentBox.classList.remove("live-suggestions");
         results.classList.add("hidden");
         errorBox.classList.add("hidden");
 
@@ -772,12 +904,6 @@
 
 
       function showGreggSvg(svgUrl) {
-        /*
-          Display a matched Gregg SVG.
-
-          This is the only state where MIRRORED | NORMAL is applied.
-        */
-
         greggSvg.src = svgUrl;
 
         svgBox.classList.remove("loading");
@@ -786,6 +912,7 @@
 
         emptyBuffer.classList.add("hidden");
         segmentBox.classList.add("hidden");
+        segmentBox.classList.remove("live-suggestions");
 
         lookupButton.disabled = false;
         updateSearchModePresentation();
@@ -795,13 +922,7 @@
 
 
       function showNotFoundSvg() {
-        /*
-          Display the not-found illustration when the backend recognizes the
-          lookup but there is no matching SVG outline in the library.
-        */
-
         greggSvg.src = "/static/not_found.svg";
-
         greggSvg.classList.remove("normal-svg");
 
         svgBox.classList.remove("loading");
@@ -810,6 +931,7 @@
 
         emptyBuffer.classList.add("hidden");
         segmentBox.classList.add("hidden");
+        segmentBox.classList.remove("live-suggestions");
 
         lookupButton.disabled = false;
         updateSearchModePresentation();
@@ -817,14 +939,13 @@
 
 
       function hideBufferToEmptyState() {
-        /*
-          Return the buffer to its neutral empty state.
-        */
-
         svgBox.classList.remove("loading");
         svgBox.classList.remove("not-found");
         svgBox.classList.add("hidden");
+
         segmentBox.classList.add("hidden");
+        segmentBox.classList.remove("live-suggestions");
+        segmentGrid.innerHTML = "";
 
         emptyBuffer.classList.remove("hidden");
 
@@ -834,14 +955,9 @@
 
 
       function clearNotFoundOnSearchActivation() {
-        /*
-          Remove the not-found drawing when the user begins a new search.
-        */
-
         if (svgBox.classList.contains("not-found")) {
           svgBox.classList.remove("not-found");
           svgBox.classList.add("hidden");
-
           emptyBuffer.classList.remove("hidden");
         }
       }
@@ -868,6 +984,16 @@
       segmentToggle.addEventListener("change", () => {
         saveSegmentModeSetting();
         updateSearchModePresentation();
+        results.classList.add("hidden");
+        errorBox.classList.add("hidden");
+
+        const word = input.value.trim();
+
+        if (word) {
+          scheduleLiveSuggestions(word);
+        } else {
+          hideBufferToEmptyState();
+        }
       });
 
 
@@ -882,7 +1008,14 @@
 
 
       input.addEventListener("focus", () => {
+        setEditorMode("insert");
         clearNotFoundOnSearchActivation();
+
+        const word = input.value.trim();
+
+        if (word) {
+          scheduleLiveSuggestions(word);
+        }
       });
 
 
@@ -900,25 +1033,24 @@
         }
 
         if (event.key === "Escape") {
+          event.preventDefault();
           helpPanel.classList.add("hidden");
+
+          if (document.activeElement === input) {
+            enterNormalMode();
+          }
+
           return;
         }
 
-        /*
-          Do not trigger command keys while the user is typing.
-        */
-
+        // In Insert Mode, ordinary keys belong to the search field.
         if (document.activeElement === input) {
           return;
         }
 
         if (event.key === "/") {
           event.preventDefault();
-
-          input.value = "";
-          clearNotFoundOnSearchActivation();
-          input.focus();
-
+          enterInsertMode({ clearInput: true });
           return;
         }
 
@@ -951,6 +1083,12 @@
 
           saveSegmentModeSetting();
           updateSearchModePresentation();
+
+          const word = input.value.trim();
+
+          if (word) {
+            scheduleLiveSuggestions(word);
+          }
 
           return;
         }
