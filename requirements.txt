@@ -6,5 +6,5 @@
 flask
 wordfreq
 eng-to-ipa
-nltk
+nltk==3.9.4
 gunicorn
