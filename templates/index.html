@@ -13,6 +13,7 @@
   - MIRRORED | NORMAL image orientation toggle
   - LIGHT | DARK theme toggle
   - EXACT | SEGMENT search mode toggle
+  - MAJOR OFF | MAJOR ON reverse-lookup toggle
   - Persistent user preferences with localStorage
   - Keyboard-driven workflow with Insert Mode and Normal Mode
 
@@ -26,6 +27,7 @@
   - First unsaved visit defaults to LIGHT mode.
   - First unsaved visit defaults to MIRRORED mode.
   - First unsaved visit defaults to EXACT lookup mode.
+  - First unsaved visit defaults to MAJOR OFF.
   - After the user changes any setting, the browser remembers it.
 -->
 
@@ -62,6 +64,7 @@
            - LIGHT | DARK toggle
            - MIRRORED | NORMAL toggle
            - EXACT | SEGMENT toggle
+           - MAJOR OFF | MAJOR ON toggle
            - Help button
       -->
 
@@ -119,6 +122,24 @@
             </label>
 
             <span class="theme-label">SEGMENT</span>
+          </div>
+
+          <span class="control-divider" aria-hidden="true">|</span>
+
+          <div class="control-group">
+            <span class="theme-label">MAJOR OFF</span>
+
+            <label class="toggle-switch">
+              <input
+                id="major-toggle"
+                type="checkbox"
+                aria-label="Toggle Major System reverse lookup"
+              />
+
+              <span class="toggle-slider"></span>
+            </label>
+
+            <span class="theme-label">MAJOR ON</span>
           </div>
 
           <button
@@ -190,7 +211,8 @@
            Keyboard workflow:
            - Press / to enter Insert Mode and begin a fresh search.
            - Type a word, phrase, or segment to preview outline cards.
-           - Press Enter to run the final lookup/search.
+           - With MAJOR ON, type digits to preview exact Major-value matches.
+           - Press Enter to run the final text lookup, or freeze Major results.
            - Press Esc to leave Insert Mode and return to Normal Mode.
 
            Layout note:
@@ -350,6 +372,13 @@
             </tr>
 
             <tr>
+              <th>MAJOR</th>
+              <td>
+                Toggle MAJOR ON to search numerical Major System values live
+              </td>
+            </tr>
+
+            <tr>
               <th>?</th>
               <td>Open or close help</td>
             </tr>
@@ -366,7 +395,17 @@
               jewel
               Aeolian
               i will
-              this is</pre>
+              this is
+              314</pre>
+
+          <h3>Major System Reverse Lookup</h3>
+
+          <p>
+            Set the MAJOR toggle to ON, then type a numerical value. Gregg outlines
+            whose complete Major System value exactly matches that number appear
+            live in the multi-card results view. Press Enter to freeze the current
+            results and return to Normal Mode.
+          </p>
 
           <h3>Word Frequency Metric</h3>
 
@@ -394,10 +433,11 @@
         Workflow:
         1. Press / to enter Insert Mode and focus the search field.
         2. While the user types, fetch /suggest and display outline-only cards.
-        3. Do not display frequency, grammar, IPA, or Major values during typing.
-        4. Press Enter to run the final lookup/search and return to Normal Mode.
-        5. Press Esc to leave Insert Mode without clearing the current query.
-        6. Show the metadata panel only after the final exact lookup.
+        3. With MAJOR ON, digit-only input performs live exact Major lookup.
+        4. Do not display ordinary lookup metadata during live suggestions.
+        5. Enter finalizes text lookup; for Major input it freezes the cards.
+        6. Press Esc to leave Insert Mode without clearing the current query.
+        7. Show the metadata panel only after the final exact text lookup.
       */
 
 
@@ -433,6 +473,7 @@
       const orientationToggle = document.getElementById("orientation-toggle");
       const themeToggle = document.getElementById("theme-toggle");
       const segmentToggle = document.getElementById("segment-toggle");
+      const majorToggle = document.getElementById("major-toggle");
 
       const helpButton = document.getElementById("help-button");
       const helpPanel = document.getElementById("help-panel");
@@ -449,6 +490,7 @@
         orientation: "greggOrientation",
         theme: "greggTheme",
         segmentMode: "greggSegmentMode",
+        majorMode: "greggMajorMode",
       };
 
       const LIVE_SUGGESTION_DELAY_MS = 160;
@@ -472,6 +514,7 @@
         const savedSegmentMode = localStorage.getItem(
           STORAGE_KEYS.segmentMode
         );
+        const savedMajorMode = localStorage.getItem(STORAGE_KEYS.majorMode);
 
         orientationToggle.checked = savedOrientation === "normal";
 
@@ -484,6 +527,7 @@
         }
 
         segmentToggle.checked = savedSegmentMode === "segment";
+        majorToggle.checked = savedMajorMode === "on";
 
         updateSearchModePresentation();
       }
@@ -513,13 +557,30 @@
       }
 
 
+      function saveMajorModeSetting() {
+        localStorage.setItem(
+          STORAGE_KEYS.majorMode,
+          majorToggle.checked ? "on" : "off"
+        );
+      }
+
+
       function updateSearchModePresentation() {
         /*
-          Keep mode-specific controls minimal. The fixed prompt text remains
-          "Search here:"; the button alone reflects the active search mode.
+          MAJOR is independent of EXACT / SEGMENT. Text searches keep their
+          existing mode; digit-only input uses live Major lookup only when the
+          MAJOR toggle is enabled.
         */
 
-        input.placeholder = "word, phrase, or segment";
+        input.placeholder = majorToggle.checked
+          ? "word, phrase, segment, or Major number"
+          : "word, phrase, or segment";
+
+        if (majorToggle.checked && /^\d+$/.test(input.value.trim())) {
+          lookupButton.textContent = "Finish Major";
+          return;
+        }
+
         lookupButton.textContent = segmentToggle.checked
           ? "Search Segment"
           : "Lookup";
@@ -608,6 +669,12 @@
           return;
         }
 
+        // Major results are already live. Enter only freezes the current
+        // card set and returns to Normal Mode.
+        if (majorToggle.checked && /^\d+$/.test(word)) {
+          return;
+        }
+
         if (segmentToggle.checked) {
           await runFinalSegmentSearch(word);
         } else {
@@ -691,6 +758,7 @@
         errorBox.classList.add("hidden");
 
         const word = input.value.trim();
+        updateSearchModePresentation();
 
         if (!word) {
           cancelLiveSuggestionRequest();
@@ -715,7 +783,8 @@
         cancelLiveSuggestionRequest(false);
 
         const mode = segmentToggle.checked ? "segment" : "exact";
-        const queryKey = `${mode}:${word}`;
+        const majorMode = majorToggle.checked ? "1" : "0";
+        const queryKey = `${mode}:${majorMode}:${word}`;
         lastLiveSuggestionQuery = queryKey;
 
         liveSuggestionController = new AbortController();
@@ -724,6 +793,7 @@
           const response = await fetch(
             `/suggest?word=${encodeURIComponent(word)}` +
               `&mode=${encodeURIComponent(mode)}` +
+              `&major=${majorMode}` +
               `&limit=${LIVE_SUGGESTION_LIMIT}`,
             { signal: liveSuggestionController.signal }
           );
@@ -762,6 +832,7 @@
       function showLiveSuggestions(data) {
         const matchCount = data.match_count || 0;
         const displayQuery = data.raw_query || input.value.trim();
+        const isMajor = data.mode === "major";
 
         svgBox.classList.remove("loading");
         svgBox.classList.remove("not-found");
@@ -775,17 +846,22 @@
         segmentBox.classList.add("live-suggestions");
         segmentGrid.innerHTML = "";
 
-        segmentSummary.textContent = `Outlines containing: ${displayQuery}`;
+        segmentSummary.textContent = isMajor
+          ? `Major System ${displayQuery}: ${matchCount} matching outlines`
+          : `Outlines containing: ${displayQuery}`;
 
         if (matchCount === 0) {
           const emptyMessage = document.createElement("div");
           emptyMessage.className = "segment-empty";
-          emptyMessage.textContent = "No outlines contain this search text.";
+          emptyMessage.textContent = isMajor
+            ? "No Gregg outlines have this exact Major System value."
+            : "No outlines contain this search text.";
           segmentGrid.appendChild(emptyMessage);
           return;
         }
 
-        renderOutlineCards(data.matches, { interactive: true });
+        // Major lookup is a live multi-result display, not a suggestion picker.
+        renderOutlineCards(data.matches, { interactive: !isMajor });
       }
 
 
@@ -812,7 +888,9 @@
           image.classList.toggle("normal-svg", orientationToggle.checked);
 
           const caption = document.createElement("figcaption");
-          caption.textContent = match.display;
+          caption.textContent = match.major_system_value
+            ? `${match.display} — ${match.major_system_value}`
+            : match.display;
 
           card.appendChild(image);
           card.appendChild(caption);
@@ -837,6 +915,7 @@
 
       function acceptSuggestion(displayText) {
         input.value = displayText;
+        updateSearchModePresentation();
         input.focus();
         results.classList.add("hidden");
         errorBox.classList.add("hidden");
@@ -997,6 +1076,22 @@
       });
 
 
+      majorToggle.addEventListener("change", () => {
+        saveMajorModeSetting();
+        updateSearchModePresentation();
+        results.classList.add("hidden");
+        errorBox.classList.add("hidden");
+
+        const word = input.value.trim();
+
+        if (word) {
+          scheduleLiveSuggestions(word);
+        } else {
+          hideBufferToEmptyState();
+        }
+      });
+
+
       helpButton.addEventListener("click", () => {
         helpPanel.classList.toggle("hidden");
       });
@@ -1010,6 +1105,7 @@
       input.addEventListener("focus", () => {
         setEditorMode("insert");
         clearNotFoundOnSearchActivation();
+        updateSearchModePresentation();
 
         const word = input.value.trim();
 

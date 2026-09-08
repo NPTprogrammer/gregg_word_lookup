@@ -17,6 +17,7 @@ Examples:
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import re
+import sqlite3
 import unicodedata
 
 import nltk
@@ -26,7 +27,6 @@ from flask import Flask, render_template, request, jsonify, send_from_directory,
 from wordfreq import zipf_frequency
 import eng_to_ipa as ipa
 
-
 app = Flask(__name__)
 
 SVG_DIR = (Path(__file__).parent / "media" / "gregg").resolve()
@@ -35,6 +35,7 @@ SVG_DIR = (Path(__file__).parent / "media" / "gregg").resolve()
 # ---------------------------------------------------------------------------
 # Word and phrase normalization / validation
 # ---------------------------------------------------------------------------
+
 
 def is_acceptable_word(raw_word: str) -> bool:
     """
@@ -96,6 +97,7 @@ def normalize_display_text(text: str) -> str:
 # ---------------------------------------------------------------------------
 # Frequency rating
 # ---------------------------------------------------------------------------
+
 
 def zipf_to_rating(zipf: float) -> int:
     """
@@ -190,7 +192,6 @@ def classify_grammar(text: str) -> str:
         "that": "Determiner / Demonstrative Pronoun",
         "these": "Determiner / Demonstrative Pronoun",
         "those": "Determiner / Demonstrative Pronoun",
-
         "i": "Pronoun",
         "me": "Pronoun",
         "you": "Pronoun",
@@ -203,7 +204,6 @@ def classify_grammar(text: str) -> str:
         "us": "Pronoun",
         "they": "Pronoun",
         "them": "Pronoun",
-
         "my": "Possessive Determiner",
         "your": "Possessive Determiner",
         "his": "Possessive Determiner / Pronoun",
@@ -215,7 +215,6 @@ def classify_grammar(text: str) -> str:
         "hers": "Possessive Pronoun",
         "ours": "Possessive Pronoun",
         "theirs": "Possessive Pronoun",
-
         "be": "Verb / Auxiliary",
         "am": "Verb / Auxiliary",
         "is": "Verb / Auxiliary",
@@ -230,7 +229,6 @@ def classify_grammar(text: str) -> str:
         "have": "Verb / Auxiliary",
         "has": "Verb / Auxiliary",
         "had": "Verb / Auxiliary",
-
         "will": "Modal Auxiliary",
         "would": "Modal Auxiliary",
         "shall": "Modal Auxiliary",
@@ -240,7 +238,6 @@ def classify_grammar(text: str) -> str:
         "may": "Modal Auxiliary",
         "might": "Modal Auxiliary",
         "must": "Modal Auxiliary",
-
         "of": "Preposition",
         "to": "Preposition / Infinitive Marker",
         "in": "Preposition",
@@ -256,7 +253,6 @@ def classify_grammar(text: str) -> str:
         "through": "Preposition / Adverb",
         "between": "Preposition",
         "about": "Preposition / Adverb",
-
         "and": "Conjunction",
         "but": "Conjunction",
         "or": "Conjunction",
@@ -269,7 +265,6 @@ def classify_grammar(text: str) -> str:
         "while": "Subordinating Conjunction / Noun",
         "although": "Subordinating Conjunction",
         "though": "Subordinating Conjunction / Adverb",
-
         "not": "Adverb / Negator",
         "no": "Determiner / Adverb",
         "yes": "Interjection / Response Word",
@@ -330,6 +325,7 @@ def classify_grammar(text: str) -> str:
 # ---------------------------------------------------------------------------
 # IPA to Major system conversion
 # ---------------------------------------------------------------------------
+
 
 def ipa_to_major(ipa_text: str) -> str:
     """
@@ -446,6 +442,7 @@ def find_svg_filename(word_or_phrase_key: str) -> Optional[str]:
 
     return None
 
+
 def svg_stem_to_display_text(stem: str) -> str:
     """
     Convert an SVG filename stem into readable display text.
@@ -456,6 +453,164 @@ def svg_stem_to_display_text(stem: str) -> str:
     """
 
     return stem.replace("_", " ")
+
+
+_MAJOR_SYSTEM_INDEX: Optional[Dict[str, List[Dict[str, str]]]] = None
+
+
+_CMU_MAJOR_MAP = {
+    "S": "0",
+    "Z": "0",
+    "T": "1",
+    "D": "1",
+    "TH": "1",
+    "DH": "1",
+    "N": "2",
+    "NG": "2",
+    "M": "3",
+    "R": "4",
+    "ER": "4",
+    "L": "5",
+    "SH": "6",
+    "ZH": "6",
+    "CH": "6",
+    "JH": "6",
+    "K": "7",
+    "G": "7",
+    "F": "8",
+    "V": "8",
+    "P": "9",
+    "B": "9",
+}
+
+
+def cmu_phonemes_to_major(phonemes: str) -> str:
+    """
+    Convert one CMU/ARPABET pronunciation directly to Major System digits.
+
+    Vowels, stress numbers, H, W, and Y do not contribute digits. The mapping
+    mirrors the consonant values already used by ipa_to_major().
+    """
+
+    digits = []
+
+    for phoneme in phonemes.split():
+        symbol = re.sub(r"\d", "", phoneme).upper()
+        digit = _CMU_MAJOR_MAP.get(symbol)
+
+        if digit:
+            digits.append(digit)
+
+    return "".join(digits)
+
+
+def build_major_system_index() -> Dict[str, List[Dict[str, str]]]:
+    """
+    Build and cache Major System values for the available Gregg SVG outlines.
+
+    The CMU pronunciation database is opened exactly once. Each filename stem
+    is then resolved through the first CMU pronunciation for each word, which
+    closely follows eng_to_ipa's ordinary dictionary-based lookup while
+    avoiding thousands of separate SQLite connections.
+
+    Phrase outlines are supported when every whitespace-delimited word in the
+    filename has a CMU pronunciation.
+    """
+
+    global _MAJOR_SYSTEM_INDEX
+
+    if _MAJOR_SYSTEM_INDEX is not None:
+        return _MAJOR_SYSTEM_INDEX
+
+    cmu_db = (
+        Path(ipa.__file__).resolve().parent
+        / "resources"
+        / "CMU_dict.db"
+    )
+
+    pronunciations: Dict[str, str] = {}
+
+    connection = sqlite3.connect(cmu_db)
+
+    try:
+        cursor = connection.execute(
+            "SELECT word, phonemes FROM dictionary ORDER BY rowid"
+        )
+
+        for word, phonemes in cursor:
+            key = str(word).casefold()
+            pronunciations.setdefault(key, str(phonemes))
+    finally:
+        connection.close()
+
+    index: Dict[str, List[Dict[str, str]]] = {}
+
+    for svg_file in SVG_DIR.glob("*.svg"):
+        if svg_file.suffix.lower() != ".svg":
+            continue
+
+        display_text = svg_stem_to_display_text(svg_file.stem)
+        words = display_text.casefold().split()
+
+        if not words:
+            continue
+
+        major_parts = []
+        usable = True
+
+        for word in words:
+            phonemes = pronunciations.get(word)
+
+            if phonemes is None:
+                usable = False
+                break
+
+            major_parts.append(cmu_phonemes_to_major(phonemes))
+
+        if not usable:
+            continue
+
+        major_value = "".join(major_parts)
+
+        if not major_value:
+            continue
+
+        index.setdefault(major_value, []).append(
+            {
+                "filename": svg_file.name,
+                "display": display_text,
+                "svg_url": f"/svg/{svg_file.name}",
+                "major_system_value": major_value,
+            }
+        )
+
+    for matches in index.values():
+        matches.sort(
+            key=lambda item: (
+                len(item["display"]),
+                item["display"].casefold(),
+                item["filename"].casefold(),
+            )
+        )
+
+    _MAJOR_SYSTEM_INDEX = index
+    return _MAJOR_SYSTEM_INDEX
+
+
+def find_major_matches(digits: str) -> List[Dict[str, str]]:
+    """
+    Return every Gregg outline whose complete Major System value
+    exactly equals the supplied numerical value.
+
+    The Major index is keyed by complete numerical values, so this lookup
+    is a direct dictionary access rather than a scan across all entries.
+    """
+
+    if re.fullmatch(r"\d+", digits) is None:
+        return []
+
+    return list(build_major_system_index().get(digits, []))
+
 
 
 def find_segment_svg_matches(segment_key: str) -> List[Dict[str, str]]:
@@ -489,11 +644,13 @@ def find_segment_svg_matches(segment_key: str) -> List[Dict[str, str]]:
 
         display_text = svg_stem_to_display_text(svg_file.stem)
 
-        matches.append({
-            "filename": svg_file.name,
-            "display": display_text,
-            "svg_url": f"/svg/{svg_file.name}",
-        })
+        matches.append(
+            {
+                "filename": svg_file.name,
+                "display": display_text,
+                "svg_url": f"/svg/{svg_file.name}",
+            }
+        )
 
     def sort_key(item: Dict[str, str]) -> Tuple[int, int, int, str]:
         """
@@ -564,21 +721,20 @@ def find_live_svg_suggestions(
         if mode == "segment":
             is_match = search_lower in stem_lower
         else:
-            is_match = (
-                stem_lower == search_lower
-                or stem_lower.startswith(search_lower)
-            )
+            is_match = stem_lower == search_lower or stem_lower.startswith(search_lower)
 
         if not is_match:
             continue
 
         display_text = svg_stem_to_display_text(svg_file.stem)
 
-        matches.append({
-            "filename": svg_file.name,
-            "display": display_text,
-            "svg_url": f"/svg/{svg_file.name}",
-        })
+        matches.append(
+            {
+                "filename": svg_file.name,
+                "display": display_text,
+                "svg_url": f"/svg/{svg_file.name}",
+            }
+        )
 
     def sort_key(item: Dict[str, str]) -> Tuple[int, int, int, str]:
         stem = Path(item["filename"]).stem.lower()
@@ -595,10 +751,10 @@ def find_live_svg_suggestions(
     return sorted(matches, key=sort_key)[:limit]
 
 
-
 # ---------------------------------------------------------------------------
 # Web routes
 # ---------------------------------------------------------------------------
+
 
 @app.route("/")
 def index():
@@ -672,13 +828,15 @@ def segment_lookup():
     segment_text = normalize_display_text(raw_word)
     matches = find_segment_svg_matches(segment_key)
 
-    return jsonify({
-        "segment": segment_text,
-        "segment_key": segment_key,
-        "raw_query": raw_word.strip(),
-        "match_count": len(matches),
-        "matches": matches,
-    })
+    return jsonify(
+        {
+            "segment": segment_text,
+            "segment_key": segment_key,
+            "raw_query": raw_word.strip(),
+            "match_count": len(matches),
+            "matches": matches,
+        }
+    )
 
 
 @app.route("/suggest")
@@ -686,15 +844,22 @@ def suggest_lookup():
     """
     API endpoint for live outline suggestions while the user types.
 
-    This endpoint is intentionally outline-only. It preserves the raw user
-    query for display text, but it does not return frequency, grammar, IPA, or
-    Major system values. Those fields are reserved for the final /lookup
-    request after the user presses Enter.
+    Ordinary text input preserves the existing EXACT / SEGMENT suggestion
+    behavior. When the frontend Major System toggle is enabled and the query
+    contains digits only, the endpoint returns every outline whose complete
+    Major System value exactly matches the supplied number. Major results use
+    the same multi-card display as segment results.
     """
 
     raw_word = request.args.get("word", "")
     requested_mode = request.args.get("mode", "exact").lower()
     suggestion_mode = "segment" if requested_mode == "segment" else "exact"
+    major_enabled = request.args.get("major", "0").lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
     try:
         limit = int(request.args.get("limit", 24))
@@ -702,16 +867,35 @@ def suggest_lookup():
         limit = 24
 
     limit = max(1, min(limit, 60))
+    raw_query = raw_word.strip()
+
+    # Major System reverse lookup is opt-in and digit-only. It deliberately
+    # bypasses the alphabetic live-query validator below.
+    if major_enabled and re.fullmatch(r"\d+", raw_query):
+        matches = find_major_matches(raw_query)
+
+        return jsonify(
+            {
+                "query": raw_query,
+                "query_key": raw_query,
+                "raw_query": raw_query,
+                "mode": "major",
+                "match_count": len(matches),
+                "matches": matches,
+            }
+        )
 
     if not is_acceptable_live_query(raw_word):
-        return jsonify({
-            "query": normalize_display_text(raw_word),
-            "query_key": normalize_word(raw_word),
-            "raw_query": raw_word.strip(),
-            "mode": suggestion_mode,
-            "match_count": 0,
-            "matches": [],
-        })
+        return jsonify(
+            {
+                "query": normalize_display_text(raw_word),
+                "query_key": normalize_word(raw_word),
+                "raw_query": raw_word.strip(),
+                "mode": suggestion_mode,
+                "match_count": 0,
+                "matches": [],
+            }
+        )
 
     query_key = normalize_word(raw_word)
     query_text = normalize_display_text(raw_word)
@@ -721,14 +905,16 @@ def suggest_lookup():
         limit=limit,
     )
 
-    return jsonify({
-        "query": query_text,
-        "query_key": query_key,
-        "raw_query": raw_word.strip(),
-        "mode": suggestion_mode,
-        "match_count": len(matches),
-        "matches": matches,
-    })
+    return jsonify(
+        {
+            "query": query_text,
+            "query_key": query_key,
+            "raw_query": raw_word.strip(),
+            "mode": suggestion_mode,
+            "match_count": len(matches),
+            "matches": matches,
+        }
+    )
 
 
 @app.route("/svg/<path:filename>")
