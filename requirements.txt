@@ -1,10 +1,8 @@
-# ---------------------------------------------------------------------------
-# Shorthand Word Lookup Web App
-# Python package requirements
-# ---------------------------------------------------------------------------
-
-flask
-wordfreq
-eng-to-ipa
-nltk==3.9.4
-gunicorn
+# Compatible with the existing Flask/Python application.
+# Render eMudhra advisory: Certifi must be 2026.10.19 or later.
+Flask>=3.1.3,<4
+wordfreq>=3.1.1,<4
+eng-to-ipa==0.0.2
+nltk>=3.9.4,<4
+gunicorn>=23.0.0,<24
+certifi>=2026.10.19

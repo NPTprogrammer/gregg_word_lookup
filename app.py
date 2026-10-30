@@ -15,6 +15,7 @@ Examples:
 """
 
 from pathlib import Path
+import os
 from typing import Dict, List, Optional, Tuple
 import re
 import sqlite3
@@ -28,6 +29,39 @@ from wordfreq import zipf_frequency
 import eng_to_ipa as ipa
 
 app = Flask(__name__)
+# Bound the size of incoming queries, including the expensive Major System search.
+MAX_QUERY_LENGTH = 120
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
+
+
+@app.before_request
+def limit_query_length():
+    if any(len(value) > MAX_QUERY_LENGTH for value in request.args.getlist("word")):
+        return jsonify({"error": "Query too long"}), 400
+
+
+@app.after_request
+def add_security_headers(response):
+    """Harden browser handling without modifying the lookup interface."""
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    # The page's one inline script is authorized by its content hash, not unsafe-inline.
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "base-uri 'none'; object-src 'none'; frame-ancestors 'none'; "
+        "form-action 'self'; script-src 'self' 'sha256-" + INLINE_SCRIPT_SHA256 + "'; "
+        "style-src 'self'; img-src 'self' data:; connect-src 'self'; "
+        "upgrade-insecure-requests"
+    )
+    if request.path.startswith("/svg/"):
+        response.headers["Content-Disposition"] = "inline"
+    return response
+
+
+# Updated automatically when editing the inline JS in templates/index.html.
+INLINE_SCRIPT_SHA256 = "KEHdnYh2Q4jwgCHBDNqIlYcveUYrO+VcYZFqg4bmMkA="
 
 SVG_DIR = (Path(__file__).parent / "media" / "gregg").resolve()
 
@@ -923,14 +957,13 @@ def serve_svg(filename):
     Serve a Gregg shorthand SVG file.
     """
 
-    safe_name = Path(filename).name
-
-    if not safe_name.endswith(".svg"):
+    # Do not silently turn directory traversal attempts into valid basenames.
+    if not re.fullmatch(r"[A-Za-z0-9_'-]+\.svg", filename):
         abort(404)
 
-    return send_from_directory(SVG_DIR, safe_name, mimetype="image/svg+xml")
+    return send_from_directory(SVG_DIR, filename, mimetype="image/svg+xml")
 
 
 if __name__ == "__main__":
     print(f"Using SVG directory: {SVG_DIR}")
-    app.run(debug=True, host="127.0.0.1", port=5000)
+    app.run(debug=False, host="127.0.0.1", port=int(os.environ.get("PORT", "5000")))
